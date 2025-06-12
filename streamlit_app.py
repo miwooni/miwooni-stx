@@ -109,8 +109,8 @@ def auto_train_and_predict(df, selected_tf, model_dir="ai_models"):
 
 # ---------------------- 공통 함수 정의 ----------------------
 def send_telegram_alert(message: str):
-    bot_token = "7545404316:AAHMdayWZjwEZmZwd5JrKXPDn5wUQfivpTw"
-    chat_id = "7890657899"
+    bot_token = " "
+    chat_id = " "
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {"chat_id": chat_id, "text": message}
     try:
