@@ -109,8 +109,8 @@ def auto_train_and_predict(df, selected_tf, model_dir="ai_models"):
 
 # ---------------------- 공통 함수 정의 ----------------------
 def send_telegram_alert(message: str):
-    bot_token = " "
-    chat_id = " "
+    bot_token = "7545404316:AAHMdayWZjwEZmZwd5JrKXPDn5wUQfivpTw"
+    chat_id = "7890657899"
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {"chat_id": chat_id, "text": message}
     try:
@@ -830,6 +830,17 @@ def format_number(x):
         if x == "-": return x
         return f"{x:,.2f}" if abs(x) < 10000 else f"{x:,.0f}"
     return x
+
+# ---------------------- 데이터 충분성 검사 함수 추가 ----------------------
+def is_sufficient_data(df, min_points=60):
+    """
+    데이터프레임이 예측에 충분한 데이터(행 수)를 가지고 있는지 검사
+    """
+    if df is None or df.empty:
+        return False, "데이터 없음"
+    if len(df) < min_points:
+        return False, f"최소 {min_points}개 데이터 필요 (현재 {len(df)}개)"
+    return True, ""
 
 # ---------------------- 탭 구성 ----------------------
 prices = get_current_prices()
