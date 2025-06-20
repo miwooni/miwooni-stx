@@ -334,19 +334,12 @@ def process_pattern_alerts(coin, pattern, alert_price):
 st.set_page_config(layout="wide", page_title="Crypto Dashboard", page_icon="🚀")
 
 # 형광 녹색 스타일
-DOS_GREEN = "#000000"
+DOS_GREEN = "#39FF14"
 DOS_BG = "#000000"
 DOS_RED = "#FF2222"
 DOS_BLUE = "#00BFFF"
 DOS_ORANGE = "#FF9900"
 DOS_PURPLE = "#BF00FF"
-
-# 배경 이미지 설정
-@st.cache_data
-def get_base64(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
 
 @st.cache_data
 def set_background(png_file):
