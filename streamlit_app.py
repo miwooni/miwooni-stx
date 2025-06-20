@@ -88,127 +88,104 @@ def atr(df, period=14):
 
 def detect_chart_patterns(df):
     patterns = []
-    if len(df) < 10:  # 최소 데이터 길이 증가
-        return patterns
+    if len(df) < 7: return patterns
 
     highs = df['high'].values
     lows = df['low'].values
-    closes = df['close'].values
     volumes = df['volume'].values
-    atr_vals = df['ATR'].values if 'ATR' in df.columns else np.zeros(len(df))
+    atr_vals = df['ATR'].values
 
-    # W 패턴 (거래량 + 변동성 필터 강화)
-    if len(df) >= 7:
-        # 5일 전 저점, 현재 저점
-        first_low = lows[-7]
+    # W 패턴 (거래량 + 변동성 필터)
+    if len(df) >= 5:
+        first_low = lows[-5]
         second_low = lows[-1]
-        avg_price = (first_low + second_low) / 2
-        
-        # 조건: 가격 차이 1% 이내, 거래량 증가, 변동성 증가
-        if (abs(first_low - second_low) < 0.01 * avg_price and
-            volumes[-1] > np.mean(volumes[-7:-2]) * 1.3 and
-            atr_vals[-1] > np.mean(atr_vals[-7:-2]) * 0.8):
+        if (abs(first_low - second_low) < 0.02*(first_low+second_low)/2 and
+            volumes[-1] > np.mean(volumes[-5:])*1.2 and
+            atr_vals[-1] > np.mean(atr_vals[-5:])*0.7):
             patterns.append({
                 'name': 'W 패턴',
-                'confidence': 85,  # 신뢰도 상향 조정
+                'confidence': 80,
                 'timeframe': '5~15분',
                 'movement': '상승',
-                'description': "W 패턴 (확률 85%)\n🚀 5~15분 후 상승 확률 ↑"
+                'description': "W 패턴 (확률 80%)\n🚀 5~15분 후 상승 확률 ↑"
             })
 
-    # 역 헤드앤숄더 (조건 보완)
-    if len(df) >= 9:
-        head_low = lows[-5]  # 머리 부분
-        left_shoulder = lows[-8]  # 왼쪽 어깨
-        right_shoulder = lows[-2]  # 오른쪽 어깨
-        
-        # 목선 계산 (왼쪽 고점, 오른쪽 고점 평균)
-        neckline = (highs[-9] + highs[-3]) / 2
-        
-        # 조건: 머리가 가장 낮고, 어깨 높이 유사, 목선 돌파, 거래량 증가
+    # 역 헤드앤숄더 (다중 조건)
+    if len(df) >= 7:
+        head_low = lows[-4]
+        left_shoulder = lows[-6]
+        right_shoulder = lows[-2]
+        neckline = (highs[-7] + highs[-5] + highs[-3] + highs[-1])/4
         if (left_shoulder > head_low < right_shoulder and
-            abs(left_shoulder - right_shoulder) < 0.02 * head_low and
-            closes[-1] > neckline and
-            volumes[-5] > np.mean(volumes[-9:]) * 1.7):  # 머리 부분에서 거래량 증가
+            abs(left_shoulder - right_shoulder) < 0.03*head_low and
+            df['close'].iloc[-1] > neckline and
+            volumes[-4] > np.mean(volumes)*1.5):
             patterns.append({
                 'name': '역 헤드앤숄더',
-                'confidence': 90,  # 신뢰도 상향 조정
+                'confidence': 85,
                 'timeframe': '10~30분',
                 'movement': '상승',
-                'description': "역 헤드앤숄더 (확률 90%)\n🚀 10~30분 후 상승 확률 ↑"
+                'description': "역 헤드앤숄더 (확률 85%)\n🚀 10~30분 후 상승 확률 ↑"
             })
 
-    # 상승 깃발 (추세 지속) - 조건 보완
-    if len(df) >= 10:
-        # 깃대 부분 (처음 4봉)
-        pole = df.iloc[-10:-6]
-        # 깃발 부분 (마지막 6봉)
-        flag = df.iloc[-6:]
-        
-        # 깃대 조건: 강한 상승, 높은 거래량
-        pole_range = pole['high'] - pole['low']
-        pole_avg_range = pole_range.mean()
-        
-        # 깃발 조건: 수렴, 거래량 감소
-        flag_range = flag['high'] - flag['low']
-        flag_avg_range = flag_range.mean()
-        
-        # 가격 변동성 조건
-        if (pole_avg_range > 2 * flag_avg_range and
-            np.all(pole['close'] > pole['open']) and  # 강한 상승봉
-            np.all(flag['volume'] < pole['volume'].mean() * 0.8)):  # 거래량 감소
+    # 상승 깃발 (추세 지속)
+    if len(df) >= 8:
+        last8 = df.iloc[-8:]
+        range_cond = last8['high'] - last8['low']
+        if (np.all(range_cond[:3] > 2*range_cond.mean()) and
+            np.all(np.diff(last8['close'][3:]) < 0.02*last8['close'].mean())):
             patterns.append({
                 'name': '상승 깃발패턴',
-                'confidence': 80,
+                'confidence': 75,
                 'timeframe': '10~20분',
                 'movement': '상승',
                 'description': "상승 깃발패턴(추세 지속)\n🚀 10~20분 후 추가 상승 가능성 ↑"
             })
 
-    # 삼각 수렴 (상승/하락 브레이크아웃) - 조건 보완
-    if len(df) >= 12:
-        last12 = df.iloc[-12:]
-        upper = last12['high'].values
-        lower = last12['low'].values
-        
-        # 상한선: 고점 하락
-        # 하한선: 저점 상승
+    # 하락 쐐기 (상승 반전)
+    if len(df) >= 10:
+        last10 = df.iloc[-10:]
+        upper = last10['high'].rolling(3).max().dropna()
+        lower = last10['low'].rolling(3).min().dropna()
         if (np.all(np.diff(upper) < 0) and
-            np.all(np.diff(lower) > 0) and
-            (upper[-1] - lower[-1]) < 0.7 * (upper[0] - lower[0])):  # 폭이 30% 이상 축소
+            np.all(np.diff(lower) < 0)):
             patterns.append({
-                'name': '삼각 수렴',
-                'confidence': 80,  # 신뢰도 상향 조정
-                'timeframe': '10~30분',
-                'movement': '방향성 돌파',
-                'description': "삼각 수렴(돌파 예상)\n⚡ 10~30분 내 방향성 돌파 가능성 ↑"
+                'name': '하락 쐐기',
+                'confidence': 70,
+                'timeframe': '15~30분',
+                'movement': '반등',
+                'description': "하락 쐐기(상승 반전 예측)\n🚀 15~30분 후 반등 가능성 ↑"
             })
-            
-            # 돌파 방향 예측 추가
-            if closes[-1] > (upper[-1] + lower[-1]) / 2:
-                patterns[-1]['movement'] = '상승 돌파'
-                patterns[-1]['description'] = "삼각 수렴(상승 돌파 예상)\n⬆️ 10~30분 내 상승 돌파 가능성 ↑"
-            else:
-                patterns[-1]['movement'] = '하락 돌파'
-                patterns[-1]['description'] = "삼각 수렴(하락 돌파 예상)\n⬇️ 10~30분 내 하락 돌파 가능성 ↑"
 
-    # 추가 패턴: 상승 쐐기 (반전 패턴)
+    # 컵 앤 핸들 (상승 지속)
+    if len(df) >= 20:
+        last20 = df.iloc[-20:]
+        cup = last20[:15]['low'].values
+        handle = last20[15:]['low'].values
+        if (np.all(cup[0] > cup[1:7]) and
+            np.all(cup[-5:] > cup[7]) and
+            np.all(handle[-3:] > handle[0])):
+            patterns.append({
+                'name': '컵 앤 핸들',
+                'confidence': 80,
+                'timeframe': '30~60분',
+                'movement': '강한 상승',
+                'description': "컵 앤 핸들(상승 지속)\n🚀 30~60분 후 강한 상승 신호"
+            })
+
+    # 삼각 수렴 (상승/하락 브레이크아웃)
     if len(df) >= 10:
         last10 = df.iloc[-10:]
         upper = last10['high'].values
         lower = last10['low'].values
-        
-        # 상한선: 고점 상승
-        # 하한선: 저점 상승 (더 가파름)
-        if (np.all(np.diff(upper) > 0) and
-            np.all(np.diff(lower) > 0) and
-            np.mean(np.diff(lower)) > 1.5 * np.mean(np.diff(upper))):  # 하한선이 더 가파르게 상승
+        if (np.all(np.diff(upper) < 0) and
+            np.all(np.diff(lower) > 0)):
             patterns.append({
-                'name': '상승 쐐기',
+                'name': '삼각 수렴',
                 'confidence': 75,
-                'timeframe': '15~30분',
-                'movement': '하락 반전',
-                'description': "상승 쐐기(하락 반전 예측)\n🔻 15~30분 후 하락 반전 가능성 ↑"
+                'timeframe': '10~30분',
+                'movement': '방향성 돌파',
+                'description': "삼각 수렴(추세 모멘텀)\n⚡ 10~30분 내 방향성 돌파 가능성 ↑"
             })
 
     return patterns
@@ -220,7 +197,7 @@ def calculate_signal_score(df, latest):
     sell_reasons = []
     latest_rsi = latest.get('RSI', 0) if not df.empty else 0
     
-    if df.empty or len(df) < 3:  # 최소 데이터 길이 증가
+    if df.empty or len(df) < 2:
         return buy_score, sell_score, buy_reasons, sell_reasons, latest_rsi
     
     try:
@@ -232,52 +209,35 @@ def calculate_signal_score(df, latest):
         if latest['HMA3'] > latest['HMA']:
             buy_score += 3
             buy_reasons.append("HMA3 > HMA (3점)")
-        
-        # RSI 조건 개선
-        if 30 < latest['RSI'] < 70:  # 과매수/과매도 구간 제외
-            if latest['RSI'] > 45 and latest['RSI'] > df['RSI'].iloc[-2]:
-                buy_score += 2
-                buy_reasons.append(f"RSI({latest['RSI']:.1f}) > 45 & 상승 (2점)")
-        
-        # MACD 히스토그램 개선
+        if latest['RSI'] > 30:
+            buy_score += 2
+            buy_reasons.append(f"RSI({latest['RSI']:.1f}) > 40 (2점)")
         if latest['MACD_hist'] > 0 and latest['MACD_hist'] > df.iloc[-2]['MACD_hist']:
-            buy_score += 2  # 점수 증가
-            buy_reasons.append("MACD 히스토그램 > 0 & 상승 (2점)")
-        
-        # 거래량 조건 강화
-        if len(df) > 2 and latest['volume'] > df.iloc[-2]['volume'] * 1.2:
+            buy_score += 1
+            buy_reasons.append("MACD 히스토그램 > 0 (1점)")
+        if len(df) > 1 and latest['volume'] > df.iloc[-2]['volume']:
             buy_score += 2
-            buy_reasons.append("거래량 20% 이상 증가 (2점)")
-        
-        # 볼린저 밴드 조건
-        if latest['close'] < latest['BB_lower'] * 1.01:  # 하한선 근접
+            buy_reasons.append("거래량 증가 (2점)")
+        if latest['close'] < latest['BB_lower']:
             buy_score += 2
-            buy_reasons.append("가격 < BB 하한선 근접 (2점)")
+            buy_reasons.append("가격 < BB 하한선 (2점)")
 
         # 매도 조건
         if latest['HMA3'] < latest['HMA']:
             sell_score += 3
             sell_reasons.append("HMA3 < HMA (3점)")
-        
-        # RSI 조건 개선
         if latest['RSI'] > 70:
-            sell_score += 3  # 점수 증가
-            sell_reasons.append(f"RSI({latest['RSI']:.1f}) > 70 (3점)")
-        
-        # MACD 히스토그램 개선
-        if latest['MACD_hist'] < 0 and latest['MACD_hist'] < df.iloc[-2]['MACD_hist']:
-            sell_score += 2  # 점수 증가
-            sell_reasons.append("MACD 히스토그램 < 0 & 하락 (2점)")
-        
-        # 거래량 조건 강화
-        if len(df) > 2 and latest['volume'] < df.iloc[-2]['volume'] * 0.8:
             sell_score += 2
-            sell_reasons.append("거래량 20% 이상 감소 (2점)")
-        
-        # 볼린저 밴드 조건
-        if latest['close'] > latest['BB_upper'] * 0.99:  # 상한선 근접
+            sell_reasons.append(f"RSI({latest['RSI']:.1f}) > 70 (2점)")
+        if latest['MACD_hist'] < 0:
+            sell_score += 1
+            sell_reasons.append("MACD 히스토그램 < 0 (1점)")
+        if len(df) > 1 and latest['volume'] < df.iloc[-2]['volume']:
             sell_score += 2
-            sell_reasons.append("가격 > BB 상한선 근접 (2점)")
+            sell_reasons.append("거래량 감소 (2점)")
+        if latest['close'] > latest['BB_upper']:
+            sell_score += 2
+            sell_reasons.append("가격 > BB 상한선 (2점)")
             
     except Exception as e:
         st.error(f"신호 계산 오류: {str(e)}")
@@ -286,37 +246,23 @@ def calculate_signal_score(df, latest):
     
     return buy_score, sell_score, buy_reasons, sell_reasons, latest_rsi
 
-# 패턴 알림 처리 함수 개선
-def process_pattern_alerts(coin, pattern, alert_price):
+# 패턴 알림 처리 함수 추가
+def process_pattern_alerts(coin, pattern_desc, alert_price):
     now = datetime.now()
     # 패턴 이력에 추가
-    pattern_record = {
+    pattern = {
         'coin': coin,
-        'pattern': pattern['description'],
-        'name': pattern['name'],
-        'confidence': pattern['confidence'],
+        'pattern': pattern_desc,
         'alert_time': now,
         'alert_price': alert_price,
-        'current_price': alert_price,
+        'current_price': alert_price,  # 초기값은 알림 가격
         'completed': False,
-        'end_price': None,
-        'movement': pattern['movement']
+        'end_price': None
     }
-    
-    # 중복 패턴 체크
-    duplicate = False
-    for p in st.session_state.pattern_history:
-        if (p['coin'] == coin and 
-            p['name'] == pattern['name'] and 
-            (now - p['alert_time']).total_seconds() < 600):  # 10분 내 동일 패턴
-            duplicate = True
-            break
-    
-    if not duplicate:
-        st.session_state.pattern_history.append(pattern_record)
-        # 알림 메시지 추가
-        alert_msg = f"🔔 [{coin}] 패턴 감지: {pattern['description']} (가격: {alert_price:,.1f})"
-        st.session_state.alerts.append(alert_msg)
+    st.session_state.pattern_history.append(pattern)
+    # 알림 메시지 추가
+    alert_msg = f"🔔 [{coin}] 패턴 감지: {pattern_desc} (가격: {alert_price:,.1f})"
+    st.session_state.alerts.append(alert_msg)
 
 # ---------------------- 초기 설정 ----------------------
 st.set_page_config(layout="wide")
@@ -336,39 +282,6 @@ st.markdown(
     .stMetric label, .stMetric div, .stMetric span {{
         color: {DOS_GREEN} !important;
     }}
-    .pattern-alert {{
-        border: 1px solid {DOS_GREEN};
-        border-radius: 5px;
-        padding: 10px;
-        margin: 10px 0;
-    }}
-    .completed-pattern {{
-        border: 1px solid #FF2222;
-        border-radius: 5px;
-        padding: 10px;
-        margin: 10px 0;
-    }}
-    .alert-box {{
-        padding: 10px; 
-        background: #1a1a1a; 
-        border-left: 4px solid {DOS_GREEN};
-        border-radius: 4px;
-        margin: 10px 0;
-    }}
-    .buy-signal {{
-        color: #00FF00 !important;
-        font-weight: bold;
-    }}
-    .sell-signal {{
-        color: #FF2222 !important;
-        font-weight: bold;
-    }}
-    .chart-title {{
-        font-size: 18px;
-        font-weight: bold;
-        margin-bottom: 10px;
-        color: {DOS_GREEN};
-    }}
     </style>
     """,
     unsafe_allow_html=True
@@ -384,64 +297,43 @@ default_holdings = {
     'KRW-STX': 13702.73,
     'KRW-HBAR': 62216.22494886,
     'KRW-DOGE': 61194.37067502,
-}
+    }
 markets = list(default_holdings.keys())
 timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분', 360: '360분'}
 TOTAL_INVESTMENT = 58500000
 MAIN_COIN = 'KRW-STX'  # 메인 홀딩 코인 지정
 
-# ---------------------- 데이터 함수 (성능 개선) ----------------------
-@st.cache_data(ttl=10, show_spinner=False)
+# ---------------------- 데이터 함수 ----------------------
+@st.cache_data(ttl=10)
 def get_current_prices():
     try:
-        res = requests.get(f"https://api.upbit.com/v1/ticker?markets={','.join(markets)}", timeout=5)
-        if res.status_code == 200:
-            return {x['market']: x for x in res.json()}
-        else:
-            st.error(f"가격 조회 실패: {res.status_code}")
-    except Exception as e:
-        st.error(f"가격 조회 오류: {str(e)}")
-    
-    # 실패 시 캐시된 데이터 반환
-    if 'cached_prices' in st.session_state:
-        return st.session_state.cached_prices
-    return {market: {'trade_price': 0, 'signed_change_rate': 0} for market in markets}
+        res = requests.get(f"https://api.upbit.com/v1/ticker?markets={','.join(markets)}")
+        return {x['market']:x for x in res.json()}
+    except:
+        return {market: {'trade_price': 0, 'signed_change_rate': 0} for market in markets}
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=30)
 def fetch_ohlcv(market, timeframe, count=300):
     try:
         url = f"https://api.upbit.com/v1/candles/minutes/{timeframe}"
         params = {'market': market, 'count': count}
         res = requests.get(url, params=params, timeout=10)
-        
-        if res.status_code != 200:
-            st.error(f"{market} 데이터 조회 실패: {res.status_code}")
-            return pd.DataFrame()
-            
-        data = res.json()
-        if not data:
-            st.warning(f"{market} 데이터 없음")
-            return pd.DataFrame()
-            
-        df = pd.DataFrame(data)[::-1]
+        df = pd.DataFrame(res.json())[::-1]
         df = df[['candle_date_time_kst','opening_price','high_price','low_price','trade_price','candle_acc_trade_volume']]
         df.columns = ['datetime','open','high','low','close','volume']
         df['datetime'] = pd.to_datetime(df['datetime'])
 
-        # 기술적 지표 계산 (데이터 충분할 때만)
-        if len(df) > 20:
-            df['HL2'] = (df['high'] + df['low']) / 2
-            df['HMA'] = hma(df['HL2'])
-            df['HMA3'] = hma3(df['HL2'])
-            df['Signal'] = np.where(df['HMA3'] > df['HMA'], '매수', '매도')
-            df['RSI'] = rsi(df['close'])
-            df['MACD_line'], df['Signal_line'], df['MACD_hist'] = macd(df['close'])
-            df['BB_ma'], df['BB_upper'], df['BB_lower'] = bollinger_bands(df['close'])
-            df['CCI'] = cci(df)
-            df['ATR'] = atr(df)
+        df['HL2'] = (df['high'] + df['low']) / 2
+        df['HMA'] = hma(df['HL2'])
+        df['HMA3'] = hma3(df['HL2'])
+        df['Signal'] = np.where(df['HMA3'] > df['HMA'], '매수', '매도')
+        df['RSI'] = rsi(df['close'])
+        df['MACD_line'], df['Signal_line'], df['MACD_hist'] = macd(df['close'])
+        df['BB_ma'], df['BB_upper'], df['BB_lower'] = bollinger_bands(df['close'])
+        df['CCI'] = cci(df)
+        df['ATR'] = atr(df)
         return df
-    except Exception as e:
-        st.error(f"{market} 데이터 처리 오류: {str(e)}")
+    except:
         return pd.DataFrame()
 
 # ---------------------- 사이드바 설정 ----------------------
@@ -452,13 +344,11 @@ with st.sidebar:
     
     st.subheader("💰 투자 현황")
     prices = get_current_prices()
-    st.session_state.cached_prices = prices  # 캐시 저장
-    
     stx_holding = default_holdings['KRW-STX']
-    stx_price = prices.get('KRW-STX', {}).get('trade_price', 0)
+    stx_price = prices['KRW-STX']['trade_price']
     current_value = stx_holding * stx_price
     profit = current_value - TOTAL_INVESTMENT
-    profit_percent = (profit / TOTAL_INVESTMENT) * 100 if TOTAL_INVESTMENT else 0
+    profit_percent = (profit / TOTAL_INVESTMENT) * 100
     profit_emoji = "🔻" if profit < 0 else "🟢"
 
     # 자산가치/등락률: -파랑, +빨강
@@ -476,57 +366,55 @@ with st.sidebar:
     table_alert_interval = st.number_input("테이블 알림 주기(분)", min_value=1, value=10)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------------- 메인 화면 초기화 ----------------------
-def init_session_state():
-    if 'alerts' not in st.session_state:
-        st.session_state.alerts = []
-    if 'last_alert_time' not in st.session_state:
-        st.session_state.last_alert_time = {}
-    if 'last_table_alert_time' not in st.session_state:
-        st.session_state.last_table_alert_time = datetime.min
-    if 'pattern_history' not in st.session_state:
-        st.session_state.pattern_history = []
-    if 'detected_patterns' not in st.session_state:
-        st.session_state.detected_patterns = {market: [] for market in markets}
-    if 'cached_prices' not in st.session_state:
-        st.session_state.cached_prices = {}
+# ---------------------- 메인 화면 ----------------------
+if 'alerts' not in st.session_state:
+    st.session_state.alerts = []
+if 'last_alert_time' not in st.session_state:
+    st.session_state.last_alert_time = {}
+if 'last_table_alert_time' not in st.session_state:
+    st.session_state.last_table_alert_time = datetime.min
+if 'pattern_history' not in st.session_state:
+    st.session_state.pattern_history = []
+if 'detected_patterns' not in st.session_state:
+    st.session_state.detected_patterns = {}
 
-init_session_state()
-
-# ---------------------- 코인 비교 테이블 (성능 개선) ----------------------
+# ---------------------- 코인 비교 테이블 ----------------------
 def generate_coin_table():
+    signal_scores = {} 
     base_market = 'KRW-STX'
     base_qty = default_holdings[base_market]
     base_price_data = prices.get(base_market, {'trade_price': 0, 'signed_change_rate': 0})
     base_price = base_price_data['trade_price']
-    base_krw = base_qty * base_price * 0.9995 if base_price else 0
+    base_krw = base_qty * base_price * 0.9995
 
     compare_data = []
     for market in markets:
         coin = market.split('-')[1]
         price_data = prices.get(market, {'trade_price': 0, 'signed_change_rate': 0})
         price = price_data['trade_price']
-        change_rate = price_data.get('signed_change_rate', 0) * 100
+        change_rate = price_data['signed_change_rate'] * 100
         qty = default_holdings[market]
         value = price * qty
         
-        # 기술적 지표는 이미 계산된 것 사용 (성능 개선)
         df = fetch_ohlcv(market, selected_tf)
         buy_score, sell_score = 0, 0
         latest_rsi = 0
 
-        if not df.empty and len(df) >= 3:
+        if not df.empty and len(df) >= 2:
             try:
                 latest = df.iloc[-1]
-                if 'RSI' in df.columns:
-                    latest_rsi = latest['RSI']
-                if 'HMA3' in df.columns and 'HMA' in df.columns:
-                    buy_score, sell_score, _, _, _ = calculate_signal_score(df, latest)
+                required_cols = ['HMA', 'HMA3', 'RSI', 'MACD_hist', 'volume', 'close', 'BB_upper', 'BB_lower']
+                if all(col in df.columns for col in required_cols):
+                    buy_score, sell_score, _, _, latest_rsi = calculate_signal_score(df, latest)
+                else:
+                    st.error(f"{coin} 데이터 컬럼 누락")
             except Exception as e:
                 st.error(f"{coin} 신호 계산 오류: {str(e)}")
+        else:
+            st.warning(f"{coin} 데이터 부족으로 분석 생략")
         
-        if market != base_market and price > 0:
-            replace_qty = (base_krw * 0.9995) / price
+        if market != base_market:
+            replace_qty = (base_krw * 0.9995) / price if price else 0
             diff_qty = replace_qty - qty
             replace_value = replace_qty * price * 0.9995
         else:
@@ -541,8 +429,8 @@ def generate_coin_table():
         
         compare_data.append({
             '코인명': coin,
-            '시세': f"{price:,.1f} 원" if price > 0 else "-",
-            'RSI': f"{latest_rsi:.1f}" if latest_rsi > 0 else "-",
+            '시세': f"{price:,.1f} 원",
+            'RSI': f"{latest_rsi:.1f}",
             '매수신호': f"<span style='color:{buy_color}'>매수({buy_score}/10)</span>",
             '매도신호': f"<span style='color:{sell_color}'>매도({sell_score}/10)</span>",
             '등락률': f"<span style='color:{change_color}'>{change_emoji} {change_rate:+.2f}%</span>",
@@ -553,7 +441,11 @@ def generate_coin_table():
             '대체평가액': replace_value if market != base_market else "-"
         })
 
-    return pd.DataFrame(compare_data)
+    df_compare = pd.DataFrame(compare_data)
+    # 차이수량/대체가능수량은 '-'가 아닌 경우만 float 변환
+    df_compare['차이수량'] = df_compare['차이수량'].apply(lambda x: float(x) if x != "-" else x)
+    df_compare['대체가능수량'] = df_compare['대체가능수량'].apply(lambda x: float(x) if x != "-" else x)
+    return df_compare
 
 def format_number(x):
     if isinstance(x, (int, float)):
@@ -565,6 +457,39 @@ def format_number(x):
 tab1, tab2, tab3 = st.tabs(["📊 코인 비교 테이블", "📈 코인 분석", "🔮 코인 예측"])
 
 with tab1:
+    st.subheader("📊 코인 비교 테이블 (RSI 포함)")
+    df_compare = generate_coin_table()
+    # 차이수량 컬럼: -파랑, +빨강, 0은 녹색
+    def diff_qty_color(val):
+        try:
+            v = float(val)
+            if v > 0:
+                return "color:#FF2222"
+            elif v < 0:
+                return "color:#00BFFF"
+            else:
+                return f"color:{DOS_GREEN}"
+        except Exception:
+            return f"color:{DOS_GREEN}"
+
+    # 등락률 컬럼: -파랑, +빨강 (HTML 태그 내 숫자 추출, 부호 우선)
+    def change_rate_color(val):
+        try:
+            import re
+            match = re.search(r'([+\-]?\d+(\.\d+)?)', str(val))
+            num = float(match.group(1)) if match else 0
+            if '-' in str(val):
+                return "color:#00BFFF"
+            elif '+' in str(val):
+                return "color:#FF2222"
+            elif num > 0:
+                return "color:#FF2222"
+            elif num < 0:
+                return "color:#00BFFF"
+            else:
+                return f"color:{DOS_GREEN}"
+        except Exception:
+            return f"color:{DOS_GREEN}"
 
     styled = (
         df_compare.style.format({
@@ -579,41 +504,36 @@ with tab1:
         .map(change_rate_color, subset=['등락률'])
         .map(lambda _: 'text-align: center')
     )
-
-     st.subheader("📊 코인 비교 테이블 (RSI 포함)")
-    df_compare = generate_coin_table()
-    
-    # 차이수량 컬럼: -파랑, +빨강, 0은 녹색
-    def diff_qty_color(val):
-        try:
-            v = float(val)
-            if v > 0:
-                return "color:#FF2222"
-            elif v < 0:
-                return "color:#00BFFF"
-            else:
-                return f"color:{DOS_GREEN}"
-        except Exception:
-            return f"color:{DOS_GREEN}"
-
-    # 등락률 컬럼: -파랑, +빨강
-    def change_rate_color(val):
-        try:
-            num = float(re.search(r'[-+]?\d*\.\d+|\d+', val).group())
-            if num < 0:
-                return "color:#00BFFF"
-            elif num > 0:
-                return "color:#FF2222"
-            else:
-                return f"color:{DOS_GREEN}"
-        except Exception:
-            return f"color:{DOS_GREEN}"
-   
     st.markdown(styled.to_html(escape=False, index=False), unsafe_allow_html=True)
 
 with tab2:
+    # 2코인 분석 탭: RSI 비교 차트 + 예측 가격 분석
+    st.subheader("📈 RSI 비교 차트")
+    fig_rsi = make_subplots(rows=1, cols=1)
+    rsi_time_window = timedelta(days=14)
+    now_time = datetime.now()
+    for market in markets:
+        coin = market.split('-')[1]
+        df = fetch_ohlcv(market, selected_tf)
+        if not df.empty:
+            df_recent = df[df['datetime'] >= now_time - rsi_time_window]
+            fig_rsi.add_trace(go.Scatter(
+                x=df_recent['datetime'],
+                y=df_recent['RSI'],
+                name=f'{coin} RSI',
+                line=dict(width=2)
+            ))
+    fig_rsi.update_layout(
+        height=400,
+        title=f"RSI 비교 ({timeframes[selected_tf]} 차트)",
+        yaxis_title="RSI",
+        hovermode="x unified"
+    )
+    fig_rsi.add_hline(y=30, line_dash="dash", line_color="red")
+    fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
+    st.plotly_chart(fig_rsi, use_container_width=True)
 
-# ---------------------- 테이블 알림 생성 (개선) ----------------------
+# ---------------------- 테이블 알림 생성 ----------------------
 now = datetime.now()
 tf_str = timeframes[selected_tf]
 if (now - st.session_state.last_table_alert_time) > timedelta(minutes=table_alert_interval):
@@ -640,234 +560,105 @@ if (now - st.session_state.last_table_alert_time) > timedelta(minutes=table_aler
         send_telegram_alert(alert_msg.strip())
     st.session_state.alerts.append(alert_msg)
 
-    # RSI 비교 차트
-    st.subheader("📈 RSI 비교 차트")
-    fig_rsi = make_subplots(rows=1, cols=1)
-    rsi_time_window = timedelta(days=3)  # 기간 단축 (성능 개선)
-    now_time = datetime.now()
-    
-    for market in markets:
-        coin = market.split('-')[1]
-        df = fetch_ohlcv(market, selected_tf)
-        if not df.empty and 'RSI' in df.columns:
-            df_recent = df[df['datetime'] >= now_time - rsi_time_window]
-            if not df_recent.empty:
-                fig_rsi.add_trace(go.Scatter(
-                    x=df_recent['datetime'],
-                    y=df_recent['RSI'],
-                    name=f'{coin} RSI',
-                    line=dict(width=2)
-                ))
-    
-    if len(fig_rsi.data) > 0:
-        fig_rsi.update_layout(
-            height=400,
-            title=f"RSI 비교 ({timeframes[selected_tf]} 차트)",
-            yaxis_title="RSI",
-            hovermode="x unified"
-        )
-        fig_rsi.add_hline(y=30, line_dash="dash", line_color="red")
-        fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
-        st.plotly_chart(fig_rsi, use_container_width=True)
-    else:
-        st.warning("RSI 데이터가 없습니다")
-
-# ---------------------- 개별 코인 분석 (가독성 개선) ----------------------
+# ---------------------- 개별 코인 분석 ----------------------
 for market in markets:
     coin = market.split('-')[1]
-    with st.container():
-        st.markdown(f"<div class='chart-title'>{coin} 차트 분석 ({timeframes[selected_tf]})</div>", unsafe_allow_html=True)
-        
-        df = fetch_ohlcv(market, selected_tf)
-        if df.empty:
-            st.warning(f"{coin} 차트 데이터 불러오기 실패")
-            continue
+    df = fetch_ohlcv(market, selected_tf)
+    if df.empty:
+        st.warning(f"{coin} 차트 데이터 불러오기 실패")
+        continue
 
-        latest = df.iloc[-1] if len(df) > 0 else {}
-        current_price = latest.get('close', 0)
-        prev_close = df.iloc[-2]['close'] if len(df) > 1 else current_price
-        delta = current_price - prev_close
-        delta_percent = (delta / prev_close) * 100 if prev_close else 0
+    latest = df.iloc[-1]
+    current_price = latest['close']
+    prev_close = df.iloc[-2]['close'] if len(df) > 1 else current_price
+    delta = current_price - prev_close
+    delta_percent = (delta / prev_close) * 100 if prev_close else 0
 
-        # 신호 점수 계산
-        buy_score, sell_score, buy_reasons, sell_reasons, _ = calculate_signal_score(df, latest)
-        
-        # 신호 상태 표시
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"<div class='buy-signal'>매수 신호: {buy_score}/10</div>", unsafe_allow_html=True)
-            for reason in buy_reasons:
-                st.markdown(f"<div>✓ {reason}</div>", unsafe_allow_html=True)
-                
-        with col2:
-            st.markdown(f"<div class='sell-signal'>매도 신호: {sell_score}/10</div>", unsafe_allow_html=True)
-            for reason in sell_reasons:
-                st.markdown(f"<div>✓ {reason}</div>", unsafe_allow_html=True)
-        
-        # 차트 그리기
-        fig = make_subplots(
-            rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03, 
-            row_heights=[0.6, 0.2, 0.2],
-            specs=[[{"secondary_y": True}], [{}], [{}]]
-        )
-        
-        # 캔들스틱 차트
-        fig.add_trace(go.Candlestick(
-            x=df['datetime'], 
-            open=df['open'], 
-            high=df['high'],
-            low=df['low'], 
-            close=df['close'], 
-            name="Price"
-        ), row=1, col=1)
-        
-        # 현재가 표시
-        if current_price > 0:
-            fig.add_hline(
-                y=current_price, 
-                line_dash="solid", 
-                line_color="cyan", 
-                row=1, col=1,
-                annotation_text=f"현재가: {current_price:,.1f}", 
-                annotation_position="top left",
-                annotation_font_color="cyan",
-                annotation_font_size=12
-            )
-        
-        # 기술적 지표 (데이터 있을 때만)
-        if 'HMA' in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df['datetime'], 
-                y=df['HMA'], 
-                name='HMA', 
-                line=dict(color='blue')
-            ), row=1, col=1)
-            
-        if 'HMA3' in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df['datetime'], 
-                y=df['HMA3'], 
-                name='HMA3', 
-                line=dict(color='orange')
-            ), row=1, col=1)
-            
-        if 'BB_upper' in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df['datetime'], 
-                y=df['BB_upper'], 
-                name='BB Upper', 
-                line=dict(color='gray', dash='dot')
-            ), row=1, col=1)
-            
-        if 'BB_lower' in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df['datetime'], 
-                y=df['BB_lower'], 
-                name='BB Lower', 
-                line=dict(color='gray', dash='dot')
-            ), row=1, col=1)
-        
-        # 거래량
-        fig.add_trace(go.Bar(
-            x=df['datetime'], 
-            y=df['volume'], 
-            name='Volume',
-            marker_color=np.where(df['close'] > df['open'], 'green', 'red')
-        ), row=1, col=1, secondary_y=True)
-        
-        # RSI
-        if 'RSI' in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df['datetime'], 
-                y=df['RSI'], 
-                name='RSI', 
-                line=dict(color='purple')
-            ), row=2, col=1)
-            fig.add_hline(y=30, line_dash="dot", line_color="red", row=2, col=1)
-            fig.add_hline(y=70, line_dash="dot", line_color="red", row=2, col=1)
-        
-        # MACD
-        if 'MACD_hist' in df.columns:
-            fig.add_trace(go.Bar(
-                x=df['datetime'], 
-                y=df['MACD_hist'], 
-                name='Histogram',
-                marker_color=np.where(df['MACD_hist'] > 0, 'green', 'red')
-            ), row=3, col=1)
-            
-        if 'MACD_line' in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df['datetime'], 
-                y=df['MACD_line'], 
-                name='MACD', 
-                line=dict(color='blue')
-            ), row=3, col=1)
-            
-        if 'Signal_line' in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df['datetime'], 
-                y=df['Signal_line'], 
-                name='Signal', 
-                line=dict(color='orange')
-            ), row=3, col=1)
+    fig = make_subplots(
+        rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03, 
+        row_heights=[0.6, 0.2, 0.2],
+        specs=[[{"secondary_y": True}], [{}], [{}]]
+    )
+    
+    fig.add_trace(go.Candlestick(
+        x=df['datetime'], open=df['open'], high=df['high'],
+        low=df['low'], close=df['close'], name="Price"), row=1, col=1)
+    
+    fig.add_hline(y=current_price, line_dash="solid", line_color="red", row=1, col=1,
+                 annotation_text=f"현재가: {current_price:,.1f}", 
+                 annotation_position="top left",
+                 annotation_font_color="blue",
+                 annotation_font_size=14,
+                 annotation_xanchor='center')
+    
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['HMA'], name='HMA', line=dict(color='blue')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['HMA3'], name='HMA3', line=dict(color='orange')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['BB_upper'], name='BB Upper', line=dict(color='gray', dash='dot')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['BB_lower'], name='BB Lower', line=dict(color='gray', dash='dot')), row=1, col=1)
+    fig.add_trace(go.Bar(x=df['datetime'], y=df['volume'], name='Volume',
+                       marker_color=np.where(df['close'] > df['open'], 'green', 'red')),
+               row=1, col=1, secondary_y=True)
+    
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['RSI'], name='RSI', line=dict(color='purple')), row=2, col=1)
+    fig.add_hline(y=30, line_dash="dot", line_color="red", row=2, col=1)
+    fig.add_hline(y=70, line_dash="dot", line_color="red", row=2, col=1)
 
-        fig.update_layout(
-            height=700,  # 높이 조정
-            title=f"{coin} 차트 ({selected_tf})",
-            xaxis_rangeslider_visible=False,
-            margin=dict(t=40, b=40),
-            showlegend=True,
-            template="plotly_dark"  # 어두운 테마 적용
-        )
-        
-        # X축 범위 설정 (최근 50개 데이터만 표시)
-        if len(df) > 50:
-            fig.update_xaxes(range=[df['datetime'].iloc[-50], df['datetime'].iloc[-1]])
+    fig.add_trace(go.Bar(x=df['datetime'], y=df['MACD_hist'], name='Histogram',
+                       marker_color=np.where(df['MACD_hist'] > 0, 'green', 'red')), row=3, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['MACD_line'], name='MACD', line=dict(color='blue')), row=3, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['Signal_line'], name='Signal', line=dict(color='orange')), row=3, col=1)
 
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # 패턴 감지 및 저장 (모든 코인에 대해)
+    fig.update_layout(
+        height=800,
+        title=f"{coin} 차트 ({selected_tf})",
+        xaxis_rangeslider_visible=False,
+        margin=dict(t=40, b=40),
+        showlegend=True
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # 메인 코인(STX)에 대해서만 패턴 감지 및 알림
+    if market == MAIN_COIN:
         detected_patterns = detect_chart_patterns(df)
-        st.session_state.detected_patterns[market] = detected_patterns
-        
-        # 메인 코인(STX)에 대해서만 패턴 알림
-        if market == MAIN_COIN and detected_patterns:
-            pattern_alerts = []
-            for pattern in detected_patterns:
-                timeframe_str = timeframes[selected_tf]
-                alert_msg = f"🚨🚨 [{coin} {timeframe_str}차트] {current_price:,.1f}원 // {pattern['description']} ({now.strftime('%H:%M:%S')})"
-                
-                # 중복 알림 방지
-                last_pattern_alert_key = f"{coin}_{pattern['name']}_pattern"
-                last_alert_time = st.session_state.last_alert_time.get(last_pattern_alert_key, datetime.min)
-                
-                if (now - last_alert_time) > timedelta(minutes=10):  # 10분 간격으로만 알림
-                    if telegram_enabled:
-                        send_telegram_alert(alert_msg)
-                    st.session_state.last_alert_time[last_pattern_alert_key] = now
-                    pattern_alerts.append(alert_msg)
-            
-            st.session_state.alerts.extend(pattern_alerts)
+        pattern_alerts = []
+        for pattern in detected_patterns:
+            timeframe_str = timeframes[selected_tf]
+            alert_msg = f"🚨🚨 [{coin} {timeframe_str}차트]{current_price:,.1f} 원 // 강력한 패턴 경고 - {pattern['description']} 발현! ({now.strftime('%H:%M:%S')})"
+            last_pattern_alert_key = f"{coin}_{pattern['name']}_pattern"
+            last_alert_time, last_alert_price = st.session_state.last_alert_time.get(last_pattern_alert_key, (datetime.min, None))
+            price_change = 0
+            if last_alert_price is not None and last_alert_price != 0:
+                price_change = abs((current_price - last_alert_price) / last_alert_price) * 100
+            if (now - last_alert_time) > timedelta(minutes=5) or price_change >= 1:
+                if telegram_enabled:
+                    send_telegram_alert(alert_msg)
+                st.session_state.last_alert_time[last_pattern_alert_key] = (now, current_price)
+                pattern_alerts.append(alert_msg)
+        st.session_state.alerts.extend(pattern_alerts)
+        st.session_state.detected_patterns[coin] = detected_patterns
 
 # ---------------------- 패턴 알림 처리 로직 (메인 코인만) ----------------------
 if MAIN_COIN in st.session_state.detected_patterns:
     coin = MAIN_COIN.split('-')[1]
-    detected_patterns = st.session_state.detected_patterns[MAIN_COIN]
-    current_price = prices.get(MAIN_COIN, {}).get('trade_price', 0)
-    
+    detected_patterns = st.session_state.detected_patterns[coin]
     for pattern in detected_patterns:
-        process_pattern_alerts(coin, pattern, current_price)
+        alert_price = prices[MAIN_COIN]['trade_price']
+        process_pattern_alerts(coin, pattern['description'], alert_price)
 
-# ---------------------- 코인 예측 탭 (가독성 개선) ----------------------
+# ---------------------- 코인 예측 탭 ----------------------
 with tab3:
     st.subheader("🔮 코인 예측 패턴 분석")
     
     prediction_data = []
     for market in markets:
         coin = market.split('-')[1]
-        detected_patterns = st.session_state.detected_patterns.get(market, [])
-        
-        for pattern in detected_patterns:
+        df = fetch_ohlcv(market, selected_tf)
+        if df.empty:
+            continue
+            
+        patterns = detect_chart_patterns(df)
+        for pattern in patterns:
             prediction_data.append({
                 '코인': coin,
                 '패턴명': pattern['name'],
@@ -886,25 +677,16 @@ with tab3:
         # 신호 강도에 따라 색상 지정
         def color_strength(val):
             if '강함' in val:
-                return "background-color: #330000; color: #FF5555; font-weight: bold;"
-            return "background-color: #333300; color: #FFFF55;"
+                return f"background-color: #FF2222; color: white; font-weight: bold;"
+            return "background-color: #FFFF00; color: black;"
         
-        # 방향에 따라 색상 지정
-        def color_direction(val):
-            if '상승' in val or '돌파' in val:
-                return "color: #00FF00;"
-            elif '하락' in val or '반전' in val:
-                return "color: #FF5555;"
-            return ""
-        
+        # hide_index() 제거
         styled = (
             df_predictions.style
             .applymap(color_strength, subset=['신호 강도'])
-            .applymap(color_direction, subset=['예상 방향'])
             .format({'확률(%)': '{:.0f}%'})
-            .set_properties(**{'text-align': 'center'})
         )
-        st.markdown(styled.to_html(escape=False, index=False), unsafe_allow_html=True)
+        st.markdown(styled.to_html(escape=False), unsafe_allow_html=True)
     else:
         st.info("현재 감지된 패턴이 없습니다")
 
@@ -916,7 +698,6 @@ st.session_state.minute_counter += 1
 if st.session_state.minute_counter % 12 == 0:  # 5초 * 12 = 60초
     current_prices = get_current_prices()
     active_patterns = [p for p in st.session_state.pattern_history if not p.get('completed')]
-    
     for pattern in active_patterns:
         market = f"KRW-{pattern['coin']}"
         if market in current_prices:
@@ -926,79 +707,55 @@ if st.session_state.minute_counter % 12 == 0:  # 5초 * 12 = 60초
         elapsed_minutes = (datetime.now() - pattern['alert_time']).total_seconds() / 60
         if elapsed_minutes >= 15:
             pattern['completed'] = True
-            pattern['end_price'] = pattern['current_price']
+            pattern['end_price'] = pattern['current_price']  # 현재 가격을 종가로 기록
 
-# ---------------------- 사이드바 패턴 정보 표시 (개선) ----------------------
+# ---------------------- 사이드바 패턴 정보 표시 (메인 코인만) ----------------------
 with st.sidebar:
     st.subheader("🔮 패턴 예측 분석")
-    
-    # 활성 패턴
-    st.markdown(f"<div style='color:{DOS_GREEN};font-weight:bold;'>🔔 활성 패턴 알림</div>", unsafe_allow_html=True)
-    active_patterns = [p for p in st.session_state.pattern_history if not p.get('completed')]
+    st.markdown(f"<div style='color:{DOS_GREEN};font-weight:bold;'>🔔 활성 패턴 알림</div>", 
+                unsafe_allow_html=True)
+    active_patterns = [p for p in st.session_state.pattern_history 
+                      if not p.get('completed') and p['coin'] == MAIN_COIN.split('-')[1]]
     
     if not active_patterns:
         st.markdown(f"<div style='color:{DOS_GREEN};'>- 활성 알림 없음</div>", unsafe_allow_html=True)
     else:
         for pattern in active_patterns:
             elapsed_min = (datetime.now() - pattern['alert_time']).seconds // 60
-            price_diff = pattern['current_price'] - pattern['alert_price']
-            price_diff_percent = (price_diff / pattern['alert_price']) * 100
-            
-            # 가격 변동 색상
-            diff_color = "#FF2222" if price_diff < 0 else "#00BFFF"
-            diff_emoji = "🔻" if price_diff < 0 else "🟢"
-            
             st.markdown(
-                f"<div class='pattern-alert'>"
-                f"<div style='color:{DOS_GREEN};'>"
-                f"▫️ <b>{pattern['coin']}</b> ({pattern['name']})<br>"
-                f"- {pattern['pattern'].split('(')[0]}<br>"
+                f"<div style='color:{DOS_GREEN};margin-bottom:10px;'>"
+                f"▫️ <b>{pattern['coin']}</b> ({pattern['pattern']})<br>"
                 f"- 예측시간: {pattern['alert_time'].strftime('%H:%M:%S')}<br>"
                 f"- 예측가격: {pattern['alert_price']:,.1f}원<br>"
-                f"- 현재가격: <span style='color:{diff_color};'>{pattern['current_price']:,.1f}원</span><br>"
-                f"- 변동: <span style='color:{diff_color};'>{diff_emoji} {price_diff:+,.1f}원 ({price_diff_percent:+.2f}%)</span><br>"
+                f"- 현재가격: {pattern['current_price']:,.1f}원<br>"
                 f"- 경과시간: {elapsed_min}분"
-                f"</div></div>",
+                f"</div>",
                 unsafe_allow_html=True
             )
     
-    # 완료된 패턴
-    st.markdown(f"<div style='color:{DOS_GREEN};font-weight:bold;margin-top:20px;'>📊 최근 패턴 결과</div>", unsafe_allow_html=True)
-    completed_patterns = [p for p in st.session_state.pattern_history if p.get('completed')][-3:]
-    
+    st.markdown(f"<div style='color:{DOS_GREEN};font-weight:bold;margin-top:20px;'>📊 최근 패턴 결과</div>", 
+                unsafe_allow_html=True)
+    completed_patterns = [p for p in st.session_state.pattern_history 
+                         if p.get('completed') and p['coin'] == MAIN_COIN.split('-')[1]][-3:]
     if not completed_patterns:
         st.markdown(f"<div style='color:{DOS_GREEN};'>- 완료된 알림 없음</div>", unsafe_allow_html=True)
     else:
         for pattern in completed_patterns:
             change_percent = (pattern['end_price'] - pattern['alert_price']) / pattern['alert_price'] * 100
             change_color = "#FF2222" if change_percent < 0 else "#00BFFF"
-            result_emoji = "❌" if change_percent < 0 else "✅"
-            
             st.markdown(
-                f"<div class='completed-pattern'>"
-                f"<div style='color:{DOS_GREEN};'>"
-                f"▫️ <b>{pattern['coin']}</b> ({pattern['name']}) {result_emoji}<br>"
-                f"- 예측: {pattern['movement']}<br>"
-                f"- 예측가: {pattern['alert_price']:,.1f}원<br>"
-                f"- 종료가: {pattern['end_price']:,.1f}원<br>"
-                f"- 결과: <span style='color:{change_color};'>{change_percent:+.2f}%</span><br>"
+                f"<div style='color:{DOS_GREEN};margin-bottom:15px;border:1px solid {DOS_GREEN};padding:10px;border-radius:5px;'>"
+                f"▫️ <b>{pattern['coin']}</b> ({pattern['pattern']})<br>"
+                f"- 예측시간: {pattern['alert_time'].strftime('%H:%M:%S')}<br>"
+                f"- 예측가격: {pattern['alert_price']:,.1f}원<br>"
+                f"- 종료가격: {pattern['end_price']:,.1f}원<br>"
+                f"- 변동률: <span style='color:{change_color};'>{change_percent:+.2f}%</span><br>"
                 f"- 경과시간: 15분"
-                f"</div></div>",
+                f"</div>",
                 unsafe_allow_html=True
             )
 
-# ---------------------- 실시간 알림 출력 (디자인 개선) ----------------------
+# ---------------------- 실시간 알림 출력 ----------------------
 st.subheader("🔔 분석알림 (RSI 및 패턴 포함)")
-if st.session_state.alerts:
-    for alert in reversed(st.session_state.alerts[-10:]):
-        # 패턴 알림 강조
-        if "패턴 감지" in alert:
-            st.markdown(f"<div class='alert-box' style='border-left: 4px solid #FF9900;'>🚨 {alert}</div>", unsafe_allow_html=True)
-        # 매수/매도 신호 강조
-        elif "매수" in alert or "매도" in alert:
-            border_color = "#00FF00" if "매수" in alert else "#FF2222"
-            st.markdown(f"<div class='alert-box' style='border-left: 4px solid {border_color};'>📢 {alert}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='alert-box'>ℹ️ {alert}</div>", unsafe_allow_html=True)
-else:
-    st.info("최근 알림이 없습니다")
+for alert in reversed(st.session_state.alerts[-10:]):
+    st.markdown(f"""<div style='padding:10px; background:#2b2b2b; border-radius:5px; margin:5px 0;'>{alert}</div>""", unsafe_allow_html=True)
