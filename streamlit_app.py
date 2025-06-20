@@ -358,12 +358,6 @@ def set_background(png_file):
     '''
     st.markdown(page_bg_img, unsafe_allow_html=True)
 
-# 배경 이미지 설정
-if os.path.exists('moka2.jpg'):
-    set_background('moka2.jpg')
-else:
-    st.warning("배경 이미지 파일을 찾을 수 없습니다. 기본 배경을 사용합니다.")
-
 # 커스텀 스타일 적용
 st.markdown(
     f"""
