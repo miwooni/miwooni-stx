@@ -73,7 +73,7 @@ if 'telegram_chat_id' not in st.session_state:
     st.session_state.telegram_chat_id = "7890657899"
 
 # 자동 갱신 설정 (5초 간격)
-st_autorefresh(interval=5000, key="auto_refresh")
+st_autorefresh(interval=30000, key="auto_refresh")
 
 # ---------------------- 갤럭시 기기 최적화 반응형 디자인 ----------------------
 DOS_GREEN = "#39FF14"
