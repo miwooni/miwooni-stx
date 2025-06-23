@@ -9,6 +9,7 @@ import os
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 import joblib
+from streamlit_autorefresh import st_autorefresh
 
 # MinMaxScaler를 직접 구현 (sklearn 의존성 제거)
 class MinMaxScaler:
