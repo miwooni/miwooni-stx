@@ -1,6 +1,41 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+import requests
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from datetime import datetime, timedelta
+import os
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
+import joblib
 
-# 비밀번호 설정 (노출주의)
+# MinMaxScaler를 직접 구현 (sklearn 의존성 제거)
+class MinMaxScaler:
+    def __init__(self, feature_range=(0, 1)):
+        self.feature_range = feature_range
+        self.data_min = None
+        self.data_max = None
+        self.scale = None
+        self.min = None
+        
+    def fit(self, X):
+        self.data_min = np.min(X, axis=0)
+        self.data_max = np.max(X, axis=0)
+        self.scale = (self.feature_range[1] - self.feature_range[0]) / (self.data_max - self.data_min + 1e-7)
+        self.min = self.feature_range[0] - self.data_min * self.scale
+        
+    def transform(self, X):
+        return self.min + X * self.scale
+        
+    def fit_transform(self, X):
+        self.fit(X)
+        return self.transform(X)
+        
+    def inverse_transform(self, X):
+        return (X - self.min) / self.scale
+
+# 비밀번호 설정
 PASSWORD = "Fudfud8080@"
 
 # 세션 상태 초기화
@@ -16,22 +51,9 @@ if not st.session_state.authenticated:
         st.rerun()
     elif password != "":
         st.error("❌ 비밀번호가 틀렸습니다.")
-    st.stop()  # 아래 코드 실행 방지
+    st.stop()
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-import requests
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
-from streamlit_autorefresh import st_autorefresh
-import os
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
-from tensorflow.keras.models import load_model
-import joblib
-from sklearn.preprocessing import MinMaxScaler
+
 
 # ✅ 반드시 첫 번째 Streamlit 명령어로 설정
 st.set_page_config(
