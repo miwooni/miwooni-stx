@@ -13,7 +13,7 @@ if not st.session_state.authenticated:
     password = st.text_input("비밀번호를 입력하세요:", type="password")
     if password == PASSWORD:
         st.session_state.authenticated = True
-        st.experimental_rerun()
+        st.rerun()
     elif password != "":
         st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()  # 아래 코드 실행 방지
