@@ -181,7 +181,7 @@ st.markdown(
 
 # ---------------------- 메인 타이틀 ----------------------
 st.markdown(f"<h3 style='color:{DOS_GREEN};background:{DOS_BG};font-family:Consolas,monospace;'>🔥 If you're not desperate, don't even think about it!</h3>", unsafe_allow_html=True)
-st.markdown(f"<h5 style='color:{DOS_GREEN};background:{DOS_BG};font-family:Consolas,monospace;'>🔥 Live Cryptocurrency Analytics Dashboard</h5>", unsafe_allow_html=True)
+st.markdown(f"<h5 style='color:{DOS_GREEN};background:{DOS_BG};font-family:Consolas,monospace;'>🔥 우리 모카 간식비를 벌자!!!</h5>", unsafe_allow_html=True)
 
 # ---------------------- 전역 변수 ----------------------
 default_holdings = {
