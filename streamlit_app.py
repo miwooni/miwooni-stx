@@ -43,7 +43,7 @@ if "authenticated" not in st.session_state:
 
 # 인증 처리
 if not st.session_state.authenticated:
-    st.title("🔐 비공개 대시보드")
+    st.title("🔐 모카 간식비 만들기 프로젝트")
     password = st.text_input("비밀번호를 입력하세요:", type="password")
     if password == PASSWORD:
         st.session_state.authenticated = True
