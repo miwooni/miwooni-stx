@@ -533,6 +533,7 @@ with st.sidebar:
     st.header("🔑 사용자 설정")
     with st.expander("텔레그램 설정"):
         telegram_enabled = st.checkbox("✉️ 텔레그램 알림 활성화", value=False)
+        table_alert_interval = st.number_input("테이블 알림 주기(분)", min_value=1, value=10)
         st.session_state.telegram_bot_token = st.text_input(
             "텔레그램 봇 토큰",
             value=st.session_state.telegram_bot_token
