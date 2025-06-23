@@ -1,4 +1,24 @@
 import streamlit as st
+
+# 비밀번호 설정 (노출주의)
+PASSWORD = "Fudfud8080@"
+
+# 세션 상태 초기화
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+# 인증 처리
+if not st.session_state.authenticated:
+    st.title("🔐 비공개 대시보드")
+    password = st.text_input("비밀번호를 입력하세요:", type="password")
+    if password == PASSWORD:
+        st.session_state.authenticated = True
+        st.experimental_rerun()
+    elif password != "":
+        st.error("❌ 비밀번호가 틀렸습니다.")
+    st.stop()  # 아래 코드 실행 방지
+
+import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
@@ -8,9 +28,10 @@ from datetime import datetime, timedelta
 from streamlit_autorefresh import st_autorefresh
 import os
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Input
+from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 from tensorflow.keras.models import load_model
 import joblib
+from sklearn.preprocessing import MinMaxScaler
 
 # ✅ 반드시 첫 번째 Streamlit 명령어로 설정
 st.set_page_config(
@@ -35,7 +56,7 @@ if 'telegram_chat_id' not in st.session_state:
 # 자동 갱신 설정 (5초 간격)
 st_autorefresh(interval=5000, key="auto_refresh")
 
-# ---------------------- 형광 녹색 스타일 적용 ----------------------
+# ---------------------- 갤럭시 기기 최적화 반응형 디자인 ----------------------
 DOS_GREEN = "#39FF14"
 DOS_BG = "#000000"
 st.markdown(
@@ -43,6 +64,7 @@ st.markdown(
     <style>
     body, .stApp {{
         background-color: {DOS_BG} !important;
+        font-family: 'Nanum Gothic', sans-serif;
     }}
     .dos-green, .stMarkdown, .stDataFrame, .stTable, .stText, .stSubheader, .stHeader, .stTitle, .stMetric, .stSidebar, .stSidebarContent, .stSidebar .stTextInput, .stSidebar .stNumberInput, .stSidebar .stCheckbox, .stSidebar .stSelectbox, .stSidebar .stMetric {{
         color: {DOS_GREEN} !important;
@@ -51,16 +73,87 @@ st.markdown(
     .stMetric label, .stMetric div, .stMetric span {{
         color: {DOS_GREEN} !important;
     }}
+    
+    /* 갤럭시탭 S8 울트라 (2800x1752) & 갤럭시 Z 플립3 (1080x2640) 대응 */
     @media (max-width: 600px) {{
         .stSelectbox, .stNumberInput, .stTextInput, .stButton > button {{
             font-size: 16px !important;
+            padding: 12px !important;
         }}
         .stAlert {{
-            padding: 5px !important;
+            padding: 8px !important;
+            font-size: 14px;
         }}
         .table-wrapper {{
             overflow-x: auto;
+            font-size: 12px;
         }}
+        h1 {{ font-size: 1.8rem !important; }}
+        h2 {{ font-size: 1.5rem !important; }}
+        h3 {{ font-size: 1.3rem !important; }}
+        .plotly-chart {{ height: 300px !important; }}
+    }}
+    
+    @media (min-width: 601px) and (max-width: 1200px) {{
+        .stSelectbox, .stNumberInput, .stTextInput, .stButton > button {{
+            font-size: 18px !important;
+            padding: 14px !important;
+        }}
+        .stAlert {{
+            padding: 10px !important;
+            font-size: 16px;
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+            font-size: 14px;
+        }}
+        h1 {{ font-size: 2.2rem !important; }}
+        h2 {{ font-size: 1.8rem !important; }}
+        h3 {{ font-size: 1.5rem !important; }}
+        .plotly-chart {{ height: 400px !important; }}
+    }}
+    
+    /* 스크롤바 디자인 */
+    ::-webkit-scrollbar {{
+        width: 10px;
+        height: 10px;
+    }}
+    ::-webkit-scrollbar-track {{
+        background: {DOS_BG};
+    }}
+    ::-webkit-scrollbar-thumb {{
+        background: {DOS_GREEN};
+        border-radius: 5px;
+    }}
+    ::-webkit-scrollbar-thumb:hover {{
+        background: #2ECC71;
+    }}
+    
+    /* 탭 디자인 개선 */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 10px;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        padding: 12px 24px;
+        border-radius: 8px;
+        background-color: #111;
+        transition: all 0.3s;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background-color: #222;
+        box-shadow: 0 0 10px {DOS_GREEN};
+    }}
+    
+    /* 테이블 디자인 개선 */
+    .dataframe {{
+        border: 1px solid {DOS_GREEN} !important;
+    }}
+    .dataframe th {{
+        background-color: #222 !important;
+        color: {DOS_GREEN} !important;
+    }}
+    .dataframe tr:nth-child(even) {{
+        background-color: #111 !important;
     }}
     </style>
     """,
@@ -80,15 +173,19 @@ default_holdings = {
 markets = list(default_holdings.keys())
 timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분'}
 
-# ---------------------- AI 예측 모델 ----------------------
-def create_prediction_model():
+# ---------------------- 고급 AI 예측 모델 ----------------------
+def create_advanced_model(input_shape):
     model = Sequential([
-        Input(shape=(60, 1)),
-        LSTM(50, activation='relu', return_sequences=False),
-        Dense(25, activation='relu'),
+        Input(shape=input_shape),
+        LSTM(128, activation='relu', return_sequences=True),
+        Dropout(0.2),
+        LSTM(64, activation='relu', return_sequences=False),
+        Dropout(0.2),
+        Dense(32, activation='relu'),
+        Dense(16, activation='relu'),
         Dense(5)
     ])
-    model.compile(optimizer='adam', loss='mse')
+    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
     return model
 
 def apply_prediction_correction(pred_prices, actual_prices):
@@ -104,73 +201,107 @@ def apply_prediction_correction(pred_prices, actual_prices):
     avg_error = sum(errors) / len(errors)
     return [p + avg_error * 0.7 for p in pred_prices]
 
-# --- 자동 학습 및 예측 결과 CSV 저장 함수 ---
-def auto_train_and_predict(df, selected_tf, model_dir="ai_models"):
+# --- 고급 학습 및 예측 함수 ---
+def advanced_auto_train_and_predict(df, selected_tf, model_dir="ai_models"):
     os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, f"lstm_{selected_tf}.h5")
-    scaler_path = os.path.join(model_dir, f"scaler_{selected_tf}.pkl")
-    csv_path = os.path.join(model_dir, f"pred_{selected_tf}.csv")
-    correction_path = os.path.join(model_dir, f"correction_{selected_tf}.csv")
+    model_path = os.path.join(model_dir, f"adv_lstm_{selected_tf}.h5")
+    scaler_path = os.path.join(model_dir, f"adv_scaler_{selected_tf}.pkl")
+    csv_path = os.path.join(model_dir, f"adv_pred_{selected_tf}.csv")
+    correction_path = os.path.join(model_dir, f"adv_correction_{selected_tf}.csv")
 
-    if len(df) < 65:  # 60(과거) + 5(예측)
-        return [], []
+    if len(df) < 100:  # 최소 100개 봉 필요
+        return [], [], []
 
+    # 데이터 준비
     prices = df['close'].values
-    min_val, max_val = prices.min(), prices.max()
-    scaler = {'min': min_val, 'max': max_val}
-
+    volumes = df['volume'].values
+    
+    # 정규화 (가격과 거래량 함께)
+    price_scaler = MinMaxScaler(feature_range=(0, 1))
+    volume_scaler = MinMaxScaler(feature_range=(0, 1))
+    
+    scaled_prices = price_scaler.fit_transform(prices.reshape(-1, 1)).flatten()
+    scaled_volumes = volume_scaler.fit_transform(volumes.reshape(-1, 1)).flatten()
+    
+    # 입력 데이터 생성 (가격 + 거래량)
+    sequence_length = 60
+    X, y = [], []
+    
+    for i in range(sequence_length, len(scaled_prices) - 5):
+        price_seq = scaled_prices[i-sequence_length:i]
+        volume_seq = scaled_volumes[i-sequence_length:i]
+        combined_seq = np.column_stack((price_seq, volume_seq))
+        X.append(combined_seq)
+        y.append(scaled_prices[i:i+5])
+    
+    X = np.array(X)
+    y = np.array(y)
+    
+    # 데이터 분할
+    split = int(0.8 * len(X))
+    X_train, X_val = X[:split], X[split:]
+    y_train, y_val = y[:split], y[split:]
+    
+    # 모델 생성/로드
     if os.path.exists(model_path):
         try:
             model = load_model(model_path)
         except:
-            model = create_prediction_model()
+            model = create_advanced_model((sequence_length, 2))
     else:
-        model = create_prediction_model()
-
-    norm_prices = (prices - min_val) / (max_val - min_val + 1e-8)
-    X = norm_prices[-65:-5].reshape(1, 60, 1)
-    y = norm_prices[-5:].reshape(1, 5)
-
-    model.fit(X, y, epochs=3, verbose=0)
-    model.save(model_path)
-    joblib.dump(scaler, scaler_path)
-
-    prediction = model.predict(X)
-    denorm_pred = prediction[0] * (max_val - min_val) + min_val
-
-    corrected_pred = denorm_pred
-    if os.path.exists(correction_path):
-        correction_df = pd.read_csv(correction_path)
-        actuals = correction_df['actual'].values
-        preds = correction_df['predicted'].values
-        corrected_pred = apply_prediction_correction(denorm_pred, actuals)
-
+        model = create_advanced_model((sequence_length, 2))
+    
+    # 모델 훈련
+    if len(X_train) > 0:
+        model.fit(
+            X_train, y_train, 
+            validation_data=(X_val, y_val),
+            epochs=10, 
+            batch_size=32,
+            verbose=0
+        )
+        model.save(model_path)
+    
+    # 최근 데이터로 예측
+    last_price_seq = scaled_prices[-sequence_length:]
+    last_volume_seq = scaled_volumes[-sequence_length:]
+    last_combined = np.column_stack((last_price_seq, last_volume_seq))
+    last_combined = last_combined.reshape(1, sequence_length, 2)
+    
+    prediction = model.predict(last_combined)
+    denorm_pred = price_scaler.inverse_transform(prediction).flatten()
+    
+    # 보정 적용
+    actuals = prices[-5:]
+    corrected_pred = apply_prediction_correction(denorm_pred, actuals)
+    
+    # 예측 시간 생성
     last_time = df['datetime'].iloc[-1]
     pred_times = [last_time + timedelta(minutes=selected_tf*(i+1)) for i in range(5)]
-
-    # 예측 결과 DataFrame에 verified/accuracy 컬럼 추가
+    
+    # 예측 결과 저장
     pred_df = pd.DataFrame({
         "datetime": pred_times,
         "predicted": denorm_pred,
-        "corrected": corrected_pred,
-        "verified": [False] * 5,
-        "accuracy": [None] * 5
+        "corrected": corrected_pred
     })
     pred_df.to_csv(csv_path, index=False)
-
+    
+    # 보정 데이터 업데이트
     new_correction = pd.DataFrame({
         "datetime": [datetime.now()],
         "actual": [df['close'].iloc[-1]],
         "predicted": [denorm_pred[0]]
     })
+    
     if os.path.exists(correction_path):
         correction_df = pd.read_csv(correction_path)
         correction_df = pd.concat([correction_df, new_correction])
     else:
         correction_df = new_correction
     correction_df.to_csv(correction_path, index=False)
-
-    return corrected_pred, pred_times
+    
+    return denorm_pred, corrected_pred, pred_times
 
 # ---------------------- 기술적 지표 계산 함수 ----------------------
 def wma(series, period):
@@ -263,46 +394,78 @@ def calculate_signal_score(df, latest, pred_prices=None):
             sell_reasons.append("RSI > 70")
 
         # MACD 히스토그램
-        if latest['MACD_hist'] > 0:
+        if latest['MACD_hist'] > 0 and latest['MACD_hist'] > df.iloc[-2]['MACD_hist']:
+            buy_score += WEIGHTS['macd'] * 1.5
+            buy_reasons.append("MACD 상승추세")
+        elif latest['MACD_hist'] > 0:
             buy_score += WEIGHTS['macd'] * 1
             buy_reasons.append("MACD > 0")
-        if latest['MACD_hist'] < 0:
+            
+        if latest['MACD_hist'] < 0 and latest['MACD_hist'] < df.iloc[-2]['MACD_hist']:
+            sell_score += WEIGHTS['macd'] * 1.5
+            sell_reasons.append("MACD 하락추세")
+        elif latest['MACD_hist'] < 0:
             sell_score += WEIGHTS['macd'] * 1
             sell_reasons.append("MACD < 0")
 
         # 거래량
-        if len(df) > 1 and latest['volume'] > df.iloc[-2]['volume']:
+        vol_ma = df['volume'].rolling(10).mean().iloc[-1]
+        if latest['volume'] > vol_ma * 1.5:
+            if latest['close'] > latest['open']:
+                buy_score += WEIGHTS['volume'] * 2
+                buy_reasons.append("거래량 급증 & 양봉")
+            else:
+                sell_score += WEIGHTS['volume'] * 2
+                sell_reasons.append("거래량 급증 & 음봉")
+        elif latest['volume'] > df.iloc[-2]['volume']:
             buy_score += WEIGHTS['volume'] * 1
             buy_reasons.append("거래량 증가")
-        if len(df) > 1 and latest['volume'] < df.iloc[-2]['volume']:
+        elif latest['volume'] < df.iloc[-2]['volume']:
             sell_score += WEIGHTS['volume'] * 1
             sell_reasons.append("거래량 감소")
 
         # 볼린저 밴드 돌파
-        if latest['close'] < latest['BB_lower']:
-            buy_score += WEIGHTS['bb_breakout'] * 1
-            buy_reasons.append("BB 하단 이탈")
-        if latest['close'] > latest['BB_upper']:
-            sell_score += WEIGHTS['bb_breakout'] * 1
-            sell_reasons.append("BB 상단 돌파")
+        bb_position = (latest['close'] - latest['BB_lower']) / (latest['BB_upper'] - latest['BB_lower'])
+        if bb_position < 0.2:
+            buy_score += WEIGHTS['bb_breakout'] * (1 + (0.2 - bb_position) * 5)
+            buy_reasons.append(f"BB 하단 근접 ({bb_position:.2f})")
+        if bb_position > 0.8:
+            sell_score += WEIGHTS['bb_breakout'] * (1 + (bb_position - 0.8) * 5)
+            sell_reasons.append(f"BB 상단 근접 ({bb_position:.2f})")
 
         # AI 예측 반영
         if pred_prices is not None and len(pred_prices) > 0:
             predicted = pred_prices[-1]
-            if predicted > latest['close']:
+            diff_percent = (predicted - latest['close']) / latest['close'] * 100
+            
+            if diff_percent > 1.0:
+                buy_score += WEIGHTS['ai_predict'] * 1.5
+                buy_reasons.append(f"AI 강력 상승 예측 (+{diff_percent:.1f}%)")
+            elif diff_percent > 0.5:
                 buy_score += WEIGHTS['ai_predict'] * 1
-                buy_reasons.append("AI 예측 상승")
-            elif predicted < latest['close']:
+                buy_reasons.append(f"AI 상승 예측 (+{diff_percent:.1f}%)")
+                
+            if diff_percent < -1.0:
+                sell_score += WEIGHTS['ai_predict'] * 1.5
+                sell_reasons.append(f"AI 강력 하락 예측 ({diff_percent:.1f}%)")
+            elif diff_percent < -0.5:
                 sell_score += WEIGHTS['ai_predict'] * 1
-                sell_reasons.append("AI 예측 하락")
+                sell_reasons.append(f"AI 하락 예측 ({diff_percent:.1f}%)")
 
         # 리스크: 최근 변동성 급등 (가격 변화 or 거래량 폭등)
-        if abs(df['close'].pct_change().iloc[-1]) > 0.03:
-            risk_score += 1
+        if abs(df['close'].pct_change().iloc[-1]) > 0.05:
+            risk_score += 2
             risk_reasons.append("단기 급등/급락 경고")
-        if latest['volume'] > df['volume'].mean() * 4:
+        elif abs(df['close'].pct_change().iloc[-1]) > 0.03:
             risk_score += 1
+            risk_reasons.append("변동성 증가")
+            
+        if latest['volume'] > df['volume'].mean() * 5:
+            risk_score += 2
             risk_reasons.append("비정상 거래량")
+        elif latest['volume'] > df['volume'].mean() * 3:
+            risk_score += 1
+            risk_reasons.append("거래량 급증")
 
     except Exception as e:
         buy_reasons.append(f"오류 발생: {str(e)}")
@@ -310,25 +473,11 @@ def calculate_signal_score(df, latest, pred_prices=None):
 
     return buy_score, sell_score, risk_score, buy_reasons, sell_reasons, risk_reasons, latest_rsi
 
-# ---------------------- 실시간 알림 내역 표시 ----------------------
-with st.sidebar:
-    st.markdown("---")
-    st.subheader("📢 알림 내역")
-    alert_history = st.session_state.get("alerts", [])
-    if alert_history:
-        for alert in reversed(alert_history[-10:]):
-            st.markdown(
-                f"<div style='background:#222;padding:8px 10px;margin:4px 0;border-radius:6px;font-size:14px;color:#39FF14;'>{alert}</div>",
-                unsafe_allow_html=True
-            )
-    else:
-        st.info("알림 내역이 없습니다.")
-
 # ---------------------- 데이터 함수 ----------------------
 @st.cache_data(ttl=10)
 def get_current_prices():
     try:
-        res = requests.get(f"https://api.upbit.com/v1/ticker?markets={','.join(markets)}")
+        res = requests.get(f"https://api.upbit.com/v1/ticker?markets={','.join(markets)}", timeout=5)
         return {x['market']:x for x in res.json()}
     except:
         return {market: {'trade_price': 0, 'signed_change_rate': 0} for market in markets}
@@ -339,10 +488,22 @@ def fetch_ohlcv(market, timeframe, count=300):
         url = f"https://api.upbit.com/v1/candles/minutes/{timeframe}"
         params = {'market': market, 'count': count}
         res = requests.get(url, params=params, timeout=10)
-        df = pd.DataFrame(res.json())[::-1]
+        data = res.json()
+        
+        if not data:
+            return pd.DataFrame()
+            
+        df = pd.DataFrame(data)[::-1]
         df = df[['candle_date_time_kst','opening_price','high_price','low_price','trade_price','candle_acc_trade_volume']]
         df.columns = ['datetime','open','high','low','close','volume']
         df['datetime'] = pd.to_datetime(df['datetime'])
+        
+        # 0 값 필터링
+        df = df[df['close'] > 0]
+        df = df[df['volume'] > 0]
+
+        if len(df) < 10:
+            return pd.DataFrame()
 
         df['HL2'] = (df['high'] + df['low']) / 2
         df['HMA'] = hma(df['HL2'])
@@ -353,11 +514,12 @@ def fetch_ohlcv(market, timeframe, count=300):
         df['BB_ma'], df['BB_upper'], df['BB_lower'] = bollinger_bands(df['close'])
         df['CCI'] = cci(df)
         df['ATR'] = atr(df)
-        # --- 강화 신호용 추가 지표 ---
         df['BB_width'] = (df['BB_upper'] - df['BB_lower']) / df['BB_ma']
         df['volume_momentum'] = df['volume'] / df['volume'].shift(1)
-        return df
-    except:
+        
+        return df.dropna()
+    except Exception as e:
+        st.error(f"데이터 가져오기 오류: {str(e)}")
         return pd.DataFrame()
 
 # ---------------------- 코인 테이블 생성 함수 ----------------------
@@ -381,13 +543,18 @@ def generate_coin_table(selected_tf):
         df = fetch_ohlcv(market, selected_tf)
         buy_score, sell_score = 0, 0
         latest_rsi = 0
+        ai_pred = 0
 
         if not df.empty and len(df) >= 2:
             try:
                 latest = df.iloc[-1]
                 required_cols = ['HMA', 'HMA3', 'RSI', 'MACD_hist', 'volume', 'close', 'BB_upper', 'BB_lower']
                 if all(col in df.columns for col in required_cols):
-                    buy_score, sell_score, _, _, _, _, latest_rsi = calculate_signal_score(df, latest, pred_prices=None)
+                    # AI 예측값 가져오기
+                    _, ai_preds, _ = advanced_auto_train_and_predict(df, selected_tf)
+                    if ai_preds:
+                        ai_pred = ai_preds[0]
+                    buy_score, sell_score, _, _, _, _, latest_rsi = calculate_signal_score(df, latest, pred_prices=ai_preds)
                 else:
                     st.error(f"{coin} 데이터 컬럼 누락")
             except Exception as e:
@@ -404,15 +571,29 @@ def generate_coin_table(selected_tf):
             diff_qty = "-"
             replace_value = "-"
         
-        change_color = "red" if change_rate < 0 else "green"
+        change_color = "#FF6B6B" if change_rate < 0 else "#51CF66"
         change_emoji = "🔻" if change_rate < 0 else "🟢"
-        buy_color = "green" if buy_score >= 7 else "gray"
-        sell_color = "red" if sell_score >= 7 else "gray"
+        buy_color = "#51CF66" if buy_score >= 7 else "gray"
+        sell_color = "#FF6B6B" if sell_score >= 7 else "gray"
+        
+        # AI 예측 방향성
+        ai_direction = ""
+        if ai_pred > 0:
+            ai_diff = ((ai_pred - price) / price) * 100
+            if ai_diff > 1:
+                ai_direction = f"<span style='color:#51CF66; font-weight:bold;'>▲ {ai_diff:.1f}%</span>"
+            elif ai_diff > 0:
+                ai_direction = f"<span style='color:#A9E34B;'>△ {ai_diff:.1f}%</span>"
+            elif ai_diff < -1:
+                ai_direction = f"<span style='color:#FF6B6B; font-weight:bold;'>▼ {-ai_diff:.1f}%</span>"
+            else:
+                ai_direction = f"<span style='color:#FFA94D;'>▽ {-ai_diff:.1f}%</span>"
         
         compare_data.append({
             '코인명': coin,
             '시세': f"{price:,.1f} 원",
             'RSI': f"{latest_rsi:.1f}",
+            'AI예측': ai_direction,
             '매수신호': f"<span style='color:{buy_color}'>매수({buy_score}/10)</span>",
             '매도신호': f"<span style='color:{sell_color}'>매도({sell_score}/10)</span>",
             '등락률': f"<span style='color:{change_color}'>{change_emoji} {change_rate:+.2f}%</span>",
@@ -439,36 +620,41 @@ with st.sidebar:
     st.subheader("📈 차트 주기(분) 선택")
     selected_tf = st.selectbox("차트 주기", list(timeframes.keys()), 
                               format_func=lambda x: timeframes[x], key="selected_tf", index=2)
+    
     st.header("🔑 사용자 설정")
-    telegram_enabled = st.checkbox("✉️ 텔레그램 알림 활성화", value=False)
-    st.subheader("✉️ 텔레그램 설정")
-    st.session_state.telegram_bot_token = st.text_input(
-        "텔레그램 봇 토큰",
-        value=st.session_state.telegram_bot_token
-    )
-    st.session_state.telegram_chat_id = st.text_input(
-        "텔레그램 채팅 ID",
-        value=st.session_state.telegram_chat_id
-    )
-    st.subheader("💰 보유 코인 설정")
-    for market in ['KRW-STX', 'KRW-HBAR', 'KRW-DOGE']:
-        coin = market.split('-')[1]
-        default_holdings[market] = st.number_input(
-            f"{coin} 보유량",
-            value=default_holdings.get(market, 0.0),
-            step=0.0001,
-            format="%.4f",
-            key=f"holding_{market}"
+    with st.expander("텔레그램 설정"):
+        telegram_enabled = st.checkbox("✉️ 텔레그램 알림 활성화", value=False)
+        st.session_state.telegram_bot_token = st.text_input(
+            "텔레그램 봇 토큰",
+            value=st.session_state.telegram_bot_token
         )
-    st.session_state.total_investment = st.number_input(
-        "총 투자금액 (원)",
-        value=st.session_state.total_investment,
-        step=100000,
-        format="%d"
-    )
-    st.subheader("🤖 AI 예측 설정")
-    pred_horizon = st.slider("예측 기간 (봉)", 1, 10, 5)
-    ai_confidence = st.slider("신뢰도 임계값", 50, 100, 80)
+        st.session_state.telegram_chat_id = st.text_input(
+            "텔레그램 채팅 ID",
+            value=st.session_state.telegram_chat_id
+        )
+    
+    with st.expander("보유 코인 설정"):
+        for market in ['KRW-STX', 'KRW-HBAR', 'KRW-DOGE']:
+            coin = market.split('-')[1]
+            default_holdings[market] = st.number_input(
+                f"{coin} 보유량",
+                value=default_holdings.get(market, 0.0),
+                step=0.0001,
+                format="%.4f",
+                key=f"holding_{market}"
+            )
+        st.session_state.total_investment = st.number_input(
+            "총 투자금액 (원)",
+            value=st.session_state.total_investment,
+            step=100000,
+            format="%d"
+        )
+    
+    with st.expander("AI 설정"):
+        st.subheader("🤖 AI 예측 설정")
+        pred_horizon = st.slider("예측 기간 (봉)", 1, 10, 5)
+        ai_confidence = st.slider("신뢰도 임계값", 50, 100, 80)
+        st.info("고급 AI 모델은 가격과 거래량 패턴을 함께 분석하여 예측합니다")
 
 # ---------------------- 텔레그램 알림 함수 ----------------------
 def send_telegram_alert(message: str):
@@ -488,17 +674,17 @@ def send_telegram_alert(message: str):
 # ---------------------- 메인 콘텐츠 ----------------------
 prices = get_current_prices()
 
-tab1, tab2 = st.tabs(["📊 코인 비교 테이블", "📈 코인 분석"])
+tab1, tab2 = st.tabs(["📊 코인 비교 테이블", "📈 상세 차트 분석"])
 
 with tab1:
-    st.subheader("📊 코인 비교 테이블 (RSI 포함)")
+    st.subheader(f"📊 코인 비교 테이블 ({timeframes[selected_tf]} 차트 기준)")
     df_compare = generate_coin_table(selected_tf)
     
     def diff_qty_color(val):
         try:
             v = float(val)
-            if v > 0: return "color:#FF2222"
-            elif v < 0: return "color:#00BFFF"
+            if v > 0: return "color:#FF6B6B"
+            elif v < 0: return "color:#51CF66"
             else: return f"color:{DOS_GREEN}"
         except: return f"color:{DOS_GREEN}"
 
@@ -507,10 +693,10 @@ with tab1:
             import re
             match = re.search(r'([+\-]?\d+(\.\d+)?)', str(val))
             num = float(match.group(1)) if match else 0
-            if '-' in str(val): return "color:#00BFFF"
-            elif '+' in str(val): return "color:#FF2222"
-            elif num > 0: return "color:#FF2222"
-            elif num < 0: return "color:#00BFFF"
+            if '-' in str(val): return "color:#51CF66"
+            elif '+' in str(val): return "color:#FF6B6B"
+            elif num > 0: return "color:#FF6B6B"
+            elif num < 0: return "color:#51CF66"
             else: return f"color:{DOS_GREEN}"
         except: return f"color:{DOS_GREEN}"
 
@@ -518,7 +704,7 @@ with tab1:
         df_compare.style.format({
             '보유수량': format_number,
             '대체가능수량': format_number,
-            '차이수량': lambda x: f"{x:+.0f}" if isinstance(x, (int, float)) else x,
+            '차이수량': lambda x: f"{x:+,.0f}" if isinstance(x, (int, float)) else x,
             '평가금액': format_number,
             '대체평가액': format_number,
             'RSI': lambda x: f"{x:.1f}" if isinstance(x, (int, float)) else str(x)
@@ -526,141 +712,249 @@ with tab1:
         .map(diff_qty_color, subset=['차이수량'])
         .map(change_rate_color, subset=['등락률'])
         .map(lambda _: 'text-align: center')
+        .set_properties(**{'background-color': '#111', 'color': DOS_GREEN})
     )
     st.markdown('<div class="table-wrapper">' + styled.to_html(escape=False, index=False) + '</div>', unsafe_allow_html=True)
+    
+    # 알림 내역 표시
+    st.subheader("📢 실시간 알림 내역")
+    alert_history = st.session_state.get("alerts", [])
+    if alert_history:
+        for alert in reversed(alert_history[-10:]):
+            st.markdown(
+                f"<div style='background:#222;padding:12px;margin:8px 0;border-radius:8px;font-size:16px;color:#39FF14;border-left:4px solid #51CF66;'>📢 {alert}</div>",
+                unsafe_allow_html=True
+            )
+    else:
+        st.info("현재 알림 내역이 없습니다")
 
 with tab2:
-    st.subheader("📈 RSI 비교 차트")
-    fig_rsi = make_subplots(rows=1, cols=1)
-    rsi_time_window = timedelta(days=14)
-    now_time = datetime.now()
-    for market in markets:
-        coin = market.split('-')[1]
-        df = fetch_ohlcv(market, selected_tf)
-        if not df.empty:
-            df_recent = df[df['datetime'] >= now_time - rsi_time_window]
-            fig_rsi.add_trace(go.Scatter(
-                x=df_recent['datetime'],
-                y=df_recent['RSI'],
-                name=f'{coin} RSI',
-                line=dict(width=2)
-            ))
-    fig_rsi.update_layout(
-        height=400,
-        title=f"RSI 비교 ({timeframes[selected_tf]} 차트)",
-        yaxis_title="RSI",
-        hovermode="x unified"
-    )
-    fig_rsi.add_hline(y=30, line_dash="dash", line_color="red")
-    fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
-    st.plotly_chart(fig_rsi, use_container_width=True)
-
-    st.subheader("📈 이평선 & AI 예측 vs 실제가")
-    selected_coin = st.selectbox("코인 선택 (이평선/AI예측)", [m.split('-')[1] for m in markets], key="ma_ai_coin")
-    market_for_coin = [m for m in markets if m.split('-')[1] == selected_coin][0]
-    df_ma = fetch_ohlcv(market_for_coin, selected_tf)
-    ai_preds, ai_pred_times = [], []
-    if not df_ma.empty:
-        df_ma['SMA5'] = df_ma['close'].rolling(5).mean()
-        df_ma['SMA10'] = df_ma['close'].rolling(10).mean()
-        df_ma['SMA20'] = df_ma['close'].rolling(20).mean()
-        df_ma['SMA60'] = df_ma['close'].rolling(60).mean()
-        df_ma['SMA120'] = df_ma['close'].rolling(120).mean()
-        df_ma['SMA200'] = df_ma['close'].rolling(200).mean()
-
-        try:
-            ai_preds, ai_pred_times = auto_train_and_predict(df_ma, selected_tf)
-            actuals = []
-            for pred_time in ai_pred_times:
-                actual_row = df_ma[df_ma['datetime'] == pred_time]
-                if not actual_row.empty:
-                    actuals.append(actual_row['close'].values[0])
-            if ai_preds and actuals:
-                ai_preds = apply_prediction_correction(ai_preds, actuals)
-        except Exception as e:
-            ai_preds, ai_pred_times = [], []
-            st.warning(f"AI 예측 오류: {e}")
-
-        fig_ma = go.Figure()
-        fig_ma.add_trace(go.Scatter(
-            x=df_ma['datetime'], y=df_ma['close'],
-            name='실제 가격', line=dict(color='blue', width=2)
-        ))
-        for period, color in zip([5, 10, 20, 60, 120, 200], ['orange', 'green', 'purple', 'gray', 'brown', 'black']):
-            col = f"SMA{period}"
-            if col in df_ma.columns:
-                fig_ma.add_trace(go.Scatter(
-                    x=df_ma['datetime'], y=df_ma[col],
-                    name=f'SMA{period}', line=dict(width=1, dash='dot', color=color)
-                ))
-        if ai_preds is not None and ai_pred_times and len(ai_preds) > 0:
-            tf_minutes = int(selected_tf)
-            if tf_minutes == 1:
-                pred_range = 240
-                pred_label = "4시간(240개봉)"
-            elif tf_minutes == 3:
-                pred_range = 80
-                pred_label = "4시간(80개봉)"
-            elif tf_minutes == 5:
-                pred_range = 48
-                pred_label = "4시간(48개봉)"
-            elif tf_minutes == 15:
-                pred_range = 16
-                pred_label = "4시간(16개봉)"
-            elif tf_minutes == 60:
-                pred_range = 4
-                pred_label = "4시간(4개봉)"
-            elif tf_minutes == 240:
-                pred_range = 1
-                pred_label = "4시간(1개봉)"
-            else:
-                pred_range = len(ai_preds)
-                pred_label = f"{len(ai_preds)}개봉"
-
-            show_preds = ai_preds[:pred_range]
-            show_times = ai_pred_times[:pred_range]
-
-            fig_ma.add_trace(go.Scatter(
-                x=show_times, y=show_preds,
-                name=f'AI 예측가 ({pred_label})',
-                mode='markers+text',
-                marker=dict(size=14, color='red', symbol='star'),
-                text=[f"{y:,.0f}" for y in show_preds],
-                textposition="top center",
-                hovertemplate='AI 예측가: %{y:,.0f}원<br>시간: %{x}<extra></extra>'
-            ))
-            fig_ma.add_trace(go.Scatter(
-                x=show_times, y=show_preds,
-                name=f'AI 예측선 ({pred_label})',
-                mode='lines',
-                line=dict(color='red', dash='dash', width=2),
-                showlegend=True
-            ))
-            for t, pred in zip(show_times, show_preds):
-                actual_row = df_ma[df_ma['datetime'] == t]
-                if not actual_row.empty:
-                    actual = actual_row['close'].values[0]
-                    fig_ma.add_trace(go.Scatter(
-                        x=[t, t], y=[actual, pred],
-                        mode='lines',
-                        line=dict(color='gray', dash='dot'),
-                        showlegend=False
-                    ))
-            st.info(f"예측 표기 범위: {pred_label} (차트 주기: {tf_minutes}분)")
+    st.subheader("📈 차트 분석")
+    
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        selected_coin = st.selectbox("코인 선택", [m.split('-')[1] for m in markets], key="chart_coin")
+        market_for_coin = [m for m in markets if m.split('-')[1] == selected_coin][0]
+        
+        # 기술적 지표 선택
+        st.subheader("기술적 지표 설정")
+        show_sma = st.checkbox("이동평균선(SMA)", value=True)
+        show_bollinger = st.checkbox("볼린저 밴드", value=True)
+        show_macd = st.checkbox("MACD", value=True)
+        show_rsi = st.checkbox("RSI", value=True)
+        show_volume = st.checkbox("거래량", value=True)
+    
+    with col2:
+        df_ma = fetch_ohlcv(market_for_coin, selected_tf)
+        
+        if not df_ma.empty:
+            # AI 예측값 가져오기
+            try:
+                denorm_pred, ai_preds, pred_times = advanced_auto_train_and_predict(df_ma, selected_tf)
+            except Exception as e:
+                st.warning(f"AI 예측 오류: {str(e)}")
+                denorm_pred, ai_preds, pred_times = [], [], []
+            
+            # 차트 생성
+            fig = make_subplots(
+                rows=3, cols=1, 
+                shared_xaxes=True, 
+                vertical_spacing=0.05,
+                row_heights=[0.6, 0.2, 0.2],
+                specs=[[{"secondary_y": True}], [{}], [{}]]
+            )
+            
+            # 가격 차트
+            fig.add_trace(go.Scatter(
+                x=df_ma['datetime'], y=df_ma['close'],
+                name='종가', line=dict(color='#339AF0', width=2),
+                hovertemplate='%{y:,.0f}원<extra></extra>'
+            ), row=1, col=1)
+            
+            # 캔들스틱 차트
+            fig.add_trace(go.Candlestick(
+                x=df_ma['datetime'],
+                open=df_ma['open'],
+                high=df_ma['high'],
+                low=df_ma['low'],
+                close=df_ma['close'],
+                name='캔들',
+                increasing_line_color='#51CF66', 
+                decreasing_line_color='#FF6B6B'
+            ), row=1, col=1)
+            
+            # 이동평균선
+            if show_sma:
+                ma_periods = [5, 10, 20, 60]
+                colors = ['#FCC419', '#FF922B', '#E64980', '#BE4BDB']
+                for period, color in zip(ma_periods, colors):
+                    col_name = f'SMA{period}'
+                    df_ma[col_name] = df_ma['close'].rolling(period).mean()
+                    fig.add_trace(go.Scatter(
+                        x=df_ma['datetime'], y=df_ma[col_name],
+                        name=f'SMA{period}', line=dict(width=1.5, color=color),
+                        visible='legendonly' if period > 20 else True
+                    ), row=1, col=1)
+            
+            # 볼린저 밴드
+            if show_bollinger:
+                fig.add_trace(go.Scatter(
+                    x=df_ma['datetime'], y=df_ma['BB_upper'],
+                    name='BB 상한', line=dict(width=1, color='#868E96', dash='dash'),
+                    fill='tonexty', fillcolor='rgba(134, 142, 150, 0.1)'
+                ), row=1, col=1)
+                fig.add_trace(go.Scatter(
+                    x=df_ma['datetime'], y=df_ma['BB_ma'],
+                    name='BB 중간', line=dict(width=1, color='#868E96', dash='dot'),
+                ), row=1, col=1)
+                fig.add_trace(go.Scatter(
+                    x=df_ma['datetime'], y=df_ma['BB_lower'],
+                    name='BB 하한', line=dict(width=1, color='#868E96', dash='dash'),
+                    fill='tonexty', fillcolor='rgba(134, 142, 150, 0.1)'
+                ), row=1, col=1)
+            
+            # HMA 신호
+            fig.add_trace(go.Scatter(
+                x=df_ma['datetime'], y=df_ma['HMA'],
+                name='HMA', line=dict(width=2, color='#F783AC')
+            ), row=1, col=1)
+            fig.add_trace(go.Scatter(
+                x=df_ma['datetime'], y=df_ma['HMA3'],
+                name='HMA3', line=dict(width=2, color='#5C7CFA')
+            ), row=1, col=1)
+            
+            # AI 예측값
+            if ai_preds:
+                fig.add_trace(go.Scatter(
+                    x=pred_times, y=ai_preds,
+                    name='AI 예측',
+                    mode='markers+lines',
+                    line=dict(width=3, color='#FFD43B', dash='dot'),
+                    marker=dict(size=10, color='#FFD43B', symbol='diamond'),
+                    hovertemplate='AI 예측: %{y:,.0f}원<extra></extra>'
+                ), row=1, col=1)
+                
+                for i, (t, pred) in enumerate(zip(pred_times, ai_preds)):
+                    fig.add_annotation(
+                        x=t, y=pred,
+                        text=f"{pred:,.0f}",
+                        showarrow=True,
+                        arrowhead=1,
+                        ax=0, ay=-30,
+                        bgcolor="rgba(255,212,59,0.8)",
+                        font=dict(color="#000", size=12)
+                    )
+            
+            # 거래량 차트
+            if show_volume:
+                fig.add_trace(go.Bar(
+                    x=df_ma['datetime'], y=df_ma['volume'],
+                    name='거래량', marker_color='#4DABF7',
+                    opacity=0.7
+                ), row=2, col=1)
+            
+            # MACD 차트
+            if show_macd:
+                fig.add_trace(go.Scatter(
+                    x=df_ma['datetime'], y=df_ma['MACD_line'],
+                    name='MACD', line=dict(width=1.5, color='#20C997')
+                ), row=3, col=1)
+                fig.add_trace(go.Scatter(
+                    x=df_ma['datetime'], y=df_ma['Signal_line'],
+                    name='Signal', line=dict(width=1.5, color='#FA5252')
+                ), row=3, col=1)
+                
+                # MACD 히스토그램
+                colors = ['#20C997' if val >= 0 else '#FA5252' for val in df_ma['MACD_hist']]
+                fig.add_trace(go.Bar(
+                    x=df_ma['datetime'], y=df_ma['MACD_hist'],
+                    name='Histogram', marker_color=colors,
+                    opacity=0.6
+                ), row=3, col=1)
+            
+            # RSI 차트
+            if show_rsi:
+                fig.add_trace(go.Scatter(
+                    x=df_ma['datetime'], y=df_ma['RSI'],
+                    name='RSI', line=dict(width=1.5, color='#CC5DE8'),
+                    yaxis='y2'
+                ), row=1, col=1)
+                fig.add_hline(y=30, line=dict(width=1, dash='dash', color='#51CF66'), row=1, col=1)
+                fig.add_hline(y=70, line=dict(width=1, dash='dash', color='#FF6B6B'), row=1, col=1)
+            
+            # 레이아웃 설정
+            fig.update_layout(
+                title=f"{selected_coin} 차트 분석 ({timeframes[selected_tf]} 봉)",
+                height=800,
+                template="plotly_dark",
+                hovermode="x unified",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                ),
+                xaxis=dict(rangeslider=dict(visible=False)),
+                xaxis2=dict(showticklabels=True),
+                xaxis3=dict(showticklabels=True),
+                yaxis2=dict(title="거래량"),
+                yaxis3=dict(title="MACD"),
+                yaxis=dict(title="가격 (원)"),
+                yaxis4=dict(
+                    title="RSI",
+                    overlaying="y",
+                    side="right",
+                    range=[0, 100],
+                    showgrid=False
+                ),
+                margin=dict(l=50, r=50, t=80, b=50),
+                plot_bgcolor=DOS_BG,
+                paper_bgcolor=DOS_BG,
+                font=dict(color=DOS_GREEN)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 신호 점수 표시
+            if not df_ma.empty:
+                latest = df_ma.iloc[-1]
+                buy_score, sell_score, risk_score, buy_reasons, sell_reasons, risk_reasons, latest_rsi = calculate_signal_score(
+                    df_ma, latest, ai_preds
+                )
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("매수 신호 점수", f"{buy_score}/20", delta="강한 매수" if buy_score > 12 else "매수 관심")
+                with col2:
+                    st.metric("매도 신호 점수", f"{sell_score}/20", delta="강한 매도" if sell_score > 12 else "매도 관심", delta_color="inverse")
+                with col3:
+                    st.metric("리스크 점수", f"{risk_score}/4", delta="위험 높음" if risk_score > 2 else "안정적", 
+                             delta_color="normal" if risk_score <= 2 else "off")
+                
+                # 신호 이유 표시
+                with st.expander("매수 신호 이유"):
+                    if buy_reasons:
+                        for reason in buy_reasons:
+                            st.markdown(f"- ✅ {reason}")
+                    else:
+                        st.info("매수 신호가 없습니다")
+                
+                with st.expander("매도 신호 이유"):
+                    if sell_reasons:
+                        for reason in sell_reasons:
+                            st.markdown(f"- ⚠️ {reason}")
+                    else:
+                        st.info("매도 신호가 없습니다")
+                
+                with st.expander("리스크 요인"):
+                    if risk_reasons:
+                        for reason in risk_reasons:
+                            st.markdown(f"- ⚠️ {reason}")
+                    else:
+                        st.info("특별한 리스크 요인이 없습니다")
         else:
-            st.info("AI 예측값이 없습니다. 데이터가 부족하거나 예측에 실패했습니다.")
-
-        fig_ma.update_layout(
-            title=f"{selected_coin} 이평선 & AI 예측 vs 실제가",
-            yaxis_title="가격 (원)",
-            xaxis_title="시간",
-            height=600,
-            template="plotly_dark",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        st.plotly_chart(fig_ma, use_container_width=True)
-    else:
-        st.warning(f"{selected_coin} 데이터를 불러오지 못했습니다.")
+            st.warning(f"{selected_coin} 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")
 
 # ---------------------- 이동평균선 교차 알림 로직 ----------------------
 for market in markets:
@@ -676,6 +970,7 @@ for market in markets:
         now = datetime.now()
         alert_key = f"{market}_cross"
         last_alert = st.session_state.ma_cross_alerts.get(alert_key, datetime.min)
+        
         if (golden_cross or dead_cross) and (now - last_alert) > timedelta(minutes=10):
             msg_type = "골든크로스" if golden_cross else "데드크로스"
             message = f"🚨 {coin} {msg_type} 발생! ({now.strftime('%H:%M:%S')})"
