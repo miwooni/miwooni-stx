@@ -6,8 +6,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import os
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 import joblib
 from streamlit_autorefresh import st_autorefresh
 
@@ -53,8 +51,6 @@ if not st.session_state.authenticated:
     elif password != "":
         st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
-
-
 
 # ✅ 반드시 첫 번째 Streamlit 명령어로 설정
 st.set_page_config(
@@ -196,135 +192,25 @@ default_holdings = {
 markets = list(default_holdings.keys())
 timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분'}
 
-# ---------------------- 고급 AI 예측 모델 ----------------------
-def create_advanced_model(input_shape):
-    model = Sequential([
-        Input(shape=input_shape),
-        LSTM(128, activation='relu', return_sequences=True),
-        Dropout(0.2),
-        LSTM(64, activation='relu', return_sequences=False),
-        Dropout(0.2),
-        Dense(32, activation='relu'),
-        Dense(16, activation='relu'),
-        Dense(5)
-    ])
-    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
-    return model
-
-def apply_prediction_correction(pred_prices, actual_prices):
-    """실제 가격과 예측값 차이 기반 보정"""
-    if len(actual_prices) < 5 or len(pred_prices) < 5:
-        return pred_prices
-    errors = []
-    for i in range(1, min(6, len(actual_prices))):
-        if len(pred_prices) >= i:
-            errors.append(actual_prices[-i] - pred_prices[-i])
-    if not errors:
-        return pred_prices
-    avg_error = sum(errors) / len(errors)
-    return [p + avg_error * 0.7 for p in pred_prices]
-
-# --- 고급 학습 및 예측 함수 ---
-def advanced_auto_train_and_predict(df, selected_tf, model_dir="ai_models"):
-    os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, f"adv_lstm_{selected_tf}.h5")
-    scaler_path = os.path.join(model_dir, f"adv_scaler_{selected_tf}.pkl")
-    csv_path = os.path.join(model_dir, f"adv_pred_{selected_tf}.csv")
-    correction_path = os.path.join(model_dir, f"adv_correction_{selected_tf}.csv")
-
-    if len(df) < 100:  # 최소 100개 봉 필요
-        return [], [], []
-
-    # 데이터 준비
-    prices = df['close'].values
-    volumes = df['volume'].values
+# ---------------------- 단순화된 예측 모델 ----------------------
+def simple_predict(df, period=5):
+    """이동평균 기반 단순 예측"""
+    if len(df) < 10:
+        return []
     
-    # 정규화 (가격과 거래량 함께)
-    price_scaler = MinMaxScaler(feature_range=(0, 1))
-    volume_scaler = MinMaxScaler(feature_range=(0, 1))
+    # 최근 5개 종가 기반으로 평균 예측
+    last_prices = df['close'].tail(5).values
+    avg_price = np.mean(last_prices)
     
-    scaled_prices = price_scaler.fit_transform(prices.reshape(-1, 1)).flatten()
-    scaled_volumes = volume_scaler.fit_transform(volumes.reshape(-1, 1)).flatten()
+    # 예측값 생성 (평균값에서 약간의 변동 추가)
+    predictions = []
+    for i in range(1, 6):
+        # 랜덤한 변동 추가 (최근 변동성의 50% 수준)
+        volatility = df['close'].pct_change().std() * 0.5
+        prediction = avg_price * (1 + np.random.uniform(-volatility, volatility))
+        predictions.append(prediction)
     
-    # 입력 데이터 생성 (가격 + 거래량)
-    sequence_length = 60
-    X, y = [], []
-    
-    for i in range(sequence_length, len(scaled_prices) - 5):
-        price_seq = scaled_prices[i-sequence_length:i]
-        volume_seq = scaled_volumes[i-sequence_length:i]
-        combined_seq = np.column_stack((price_seq, volume_seq))
-        X.append(combined_seq)
-        y.append(scaled_prices[i:i+5])
-    
-    X = np.array(X)
-    y = np.array(y)
-    
-    # 데이터 분할
-    split = int(0.8 * len(X))
-    X_train, X_val = X[:split], X[split:]
-    y_train, y_val = y[:split], y[split:]
-    
-    # 모델 생성/로드
-    if os.path.exists(model_path):
-        try:
-            model = load_model(model_path)
-        except:
-            model = create_advanced_model((sequence_length, 2))
-    else:
-        model = create_advanced_model((sequence_length, 2))
-    
-    # 모델 훈련
-    if len(X_train) > 0:
-        model.fit(
-            X_train, y_train, 
-            validation_data=(X_val, y_val),
-            epochs=10, 
-            batch_size=32,
-            verbose=0
-        )
-        model.save(model_path)
-    
-    # 최근 데이터로 예측
-    last_price_seq = scaled_prices[-sequence_length:]
-    last_volume_seq = scaled_volumes[-sequence_length:]
-    last_combined = np.column_stack((last_price_seq, last_volume_seq))
-    last_combined = last_combined.reshape(1, sequence_length, 2)
-    
-    prediction = model.predict(last_combined)
-    denorm_pred = price_scaler.inverse_transform(prediction).flatten()
-    
-    # 보정 적용
-    actuals = prices[-5:]
-    corrected_pred = apply_prediction_correction(denorm_pred, actuals)
-    
-    # 예측 시간 생성
-    last_time = df['datetime'].iloc[-1]
-    pred_times = [last_time + timedelta(minutes=selected_tf*(i+1)) for i in range(5)]
-    
-    # 예측 결과 저장
-    pred_df = pd.DataFrame({
-        "datetime": pred_times,
-        "predicted": denorm_pred,
-        "corrected": corrected_pred
-    })
-    pred_df.to_csv(csv_path, index=False)
-    
-    # 보정 데이터 업데이트
-    new_correction = pd.DataFrame({
-        "datetime": [datetime.now()],
-        "actual": [df['close'].iloc[-1]],
-        "predicted": [denorm_pred[0]]
-    })
-    
-    if os.path.exists(correction_path):
-        correction_df = pd.read_csv(correction_path)
-        correction_df = pd.concat([correction_df, new_correction])
-    else:
-        correction_df = new_correction
-    correction_df.to_csv(correction_path, index=False)
-    
-    return denorm_pred, corrected_pred, pred_times
+    return predictions
 
 # ---------------------- 기술적 지표 계산 함수 ----------------------
 def wma(series, period):
@@ -458,7 +344,7 @@ def calculate_signal_score(df, latest, pred_prices=None):
 
         # AI 예측 반영
         if pred_prices is not None and len(pred_prices) > 0:
-            predicted = pred_prices[-1]
+            predicted = pred_prices[0]  # 첫 번째 예측값 사용
             diff_percent = (predicted - latest['close']) / latest['close'] * 100
             
             if diff_percent > 1.0:
@@ -574,7 +460,7 @@ def generate_coin_table(selected_tf):
                 required_cols = ['HMA', 'HMA3', 'RSI', 'MACD_hist', 'volume', 'close', 'BB_upper', 'BB_lower']
                 if all(col in df.columns for col in required_cols):
                     # AI 예측값 가져오기
-                    _, ai_preds, _ = advanced_auto_train_and_predict(df, selected_tf)
+                    ai_preds = simple_predict(df)
                     if ai_preds:
                         ai_pred = ai_preds[0]
                     buy_score, sell_score, _, _, _, _, latest_rsi = calculate_signal_score(df, latest, pred_prices=ai_preds)
@@ -677,7 +563,7 @@ with st.sidebar:
         st.subheader("🤖 AI 예측 설정")
         pred_horizon = st.slider("예측 기간 (봉)", 1, 10, 5)
         ai_confidence = st.slider("신뢰도 임계값", 50, 100, 80)
-        st.info("고급 AI 모델은 가격과 거래량 패턴을 함께 분석하여 예측합니다")
+        st.info("이동평균 기반 단순 예측 모델 사용 중")
 
 # ---------------------- 텔레그램 알림 함수 ----------------------
 def send_telegram_alert(message: str):
@@ -772,11 +658,11 @@ with tab2:
         
         if not df_ma.empty:
             # AI 예측값 가져오기
-            try:
-                denorm_pred, ai_preds, pred_times = advanced_auto_train_and_predict(df_ma, selected_tf)
-            except Exception as e:
-                st.warning(f"AI 예측 오류: {str(e)}")
-                denorm_pred, ai_preds, pred_times = [], [], []
+            ai_preds = simple_predict(df_ma)
+            pred_times = []
+            if ai_preds:
+                last_time = df_ma['datetime'].iloc[-1]
+                pred_times = [last_time + timedelta(minutes=selected_tf*(i+1)) for i in range(len(ai_preds))]
             
             # 차트 생성
             fig = make_subplots(
@@ -847,7 +733,7 @@ with tab2:
             ), row=1, col=1)
             
             # AI 예측값
-            if ai_preds:
+            if ai_preds and pred_times:
                 fig.add_trace(go.Scatter(
                     x=pred_times, y=ai_preds,
                     name='AI 예측',
