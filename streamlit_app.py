@@ -185,7 +185,7 @@ st.markdown(f"<h5 style='color:{DOS_GREEN};background:{DOS_BG};font-family:Conso
 
 # ---------------------- 전역 변수 ----------------------
 default_holdings = {
-    'KRW-STX': 13702.725635935,
+    'KRW-STX': 13957.16322080,
     'KRW-HBAR': 62216.22494886,
     'KRW-DOGE': 61194.37067502,
 }
