@@ -501,6 +501,7 @@ def generate_coin_table(selected_tf):
         compare_data.append({
             '코인명': coin,
             '시세': f"{price:,.1f} 원",
+            '차이수량': diff_qty if market != base_market else "-",
             'RSI': f"{latest_rsi:.1f}",
             'AI예측': ai_direction,
             '매수신호': f"<span style='color:{buy_color}'>매수({buy_score:.1f}/10)</span>",
@@ -508,7 +509,6 @@ def generate_coin_table(selected_tf):
             '등락률': f"<span style='color:{change_color}'>{change_emoji} {change_rate:+.2f}%</span>",
             '보유수량': qty,
             '대체가능수량': replace_qty if market != base_market else "-",
-            '차이수량': diff_qty if market != base_market else "-",
             '평가금액': value,
             '대체평가액': replace_value if market != base_market else "-"
         })
