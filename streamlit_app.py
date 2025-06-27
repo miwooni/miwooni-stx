@@ -185,8 +185,8 @@ st.markdown(f"<h5 style='color:{DOS_GREEN};background:{DOS_BG};font-family:Conso
 
 # ---------------------- 전역 변수 ----------------------
 default_holdings = {
+    'KRW-HBAR': 63280.84047634, #62216.22494886,
     'KRW-STX': 13957.16322080,
-    'KRW-HBAR': 62216.22494886,
     'KRW-DOGE': 61194.37067502,
 }
 markets = list(default_holdings.keys())
@@ -434,7 +434,7 @@ def fetch_ohlcv(market, timeframe, count=300):
 # ---------------------- 코인 테이블 생성 함수 ----------------------
 def generate_coin_table(selected_tf):
     signal_scores = {} 
-    base_market = 'KRW-STX'
+    base_market = 'KRW-HBAR'
     base_qty = default_holdings[base_market]
     base_price_data = prices.get(base_market, {'trade_price': 0, 'signed_change_rate': 0})
     base_price = base_price_data['trade_price']
@@ -544,7 +544,7 @@ with st.sidebar:
         )
     
     with st.expander("보유 코인 설정"):
-        for market in ['KRW-STX', 'KRW-HBAR', 'KRW-DOGE']:
+        for market in ['KRW-HBAR', 'KRW-STX', 'KRW-DOGE']:
             coin = market.split('-')[1]
             default_holdings[market] = st.number_input(
                 f"{coin} 보유량",
