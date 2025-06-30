@@ -458,7 +458,7 @@ def check_pattern_alerts(markets, timeframes, selected_tf):
                 )
                 if send_telegram_alert(message):
                     st.session_state.last_alert_time[alert_key] = now_kst
-                    alerts.append(f"🌊 {coin} 파동 패턴: {pattern}")
+                      alerts.append(f"🌊 {coin} 파동 패턴: {pattern} ({now_kst.strftime('%m-%d %H:%M KST')})")
 
         # 피보나치 돌파 감지
         high, _, fib_levels = calculate_fibonacci_levels(df)
