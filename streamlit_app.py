@@ -429,34 +429,37 @@ def init_dashboard():
 def check_pattern_alerts(markets, timeframes, selected_tf):
     """패턴 알림 체크 및 발송"""
     alerts = []
-    now = datetime.now()
-    
+    # 한국 시간(KST)으로 현재 시간 계산 (UTC+9)
+    now_utc = datetime.utcnow()
+    now_kst = now_utc + timedelta(hours=9)
+
     for market in markets:
         coin = market.split('-')[1]
         df = fetch_ohlcv(market, selected_tf)
         if df.empty:
             continue
-            
+
         current_price = df.iloc[-1]['close']
         tf_name = timeframes[selected_tf]
-        
+
         # 파동 패턴 감지
         wave_patterns = detect_wave_patterns(df)
         for pattern in wave_patterns:
             alert_key = f"{coin}_{pattern[:10]}_pattern"
             last_alert = st.session_state.last_alert_time.get(alert_key, datetime.min)
-            
-            if (now - last_alert) > timedelta(minutes=10):
+
+            # 한국 시간으로 변환된 감지 시간 사용
+            if (now_kst - last_alert) > timedelta(minutes=10):
                 message = (
                     f"🌊 *{coin} {tf_name}차트 파동 패턴 감지!*\n"
                     f"📊 패턴 유형: {pattern}\n"
                     f"💰 현재 가격: `{current_price:,.1f}` 원\n"
-                    f"📅 감지 시간: {now.strftime('%m-%d %H:%M')}"
+                    f"📅 감지 시간: {now_kst.strftime('%m-%d %H:%M')}"
                 )
                 if send_telegram_alert(message):
-                    st.session_state.last_alert_time[alert_key] = now
+                    st.session_state.last_alert_time[alert_key] = now_kst
                     alerts.append(f"🌊 {coin} 파동 패턴: {pattern}")
-        
+
         # 피보나치 돌파 감지
         high, _, fib_levels = calculate_fibonacci_levels(df)
         if fib_levels and current_price > high:
@@ -464,8 +467,8 @@ def check_pattern_alerts(markets, timeframes, selected_tf):
                 if current_price > level:
                     alert_key = f"{coin}_fib_{ratio}"
                     last_alert = st.session_state.last_alert_time.get(alert_key, datetime.min)
-                    
-                    if (now - last_alert) > timedelta(minutes=30):
+
+                    if (now_kst - last_alert) > timedelta(minutes=30):
                         message = (
                             f"🚨 *{coin} {tf_name}차트 피보나치 돌파 알림!*\n"
                             f"📈 현재 가격: `{current_price:,.1f}` 원\n"
@@ -473,9 +476,9 @@ def check_pattern_alerts(markets, timeframes, selected_tf):
                             f"💎 예상 목표가: `{level:,.1f}` 원"
                         )
                         if send_telegram_alert(message):
-                            st.session_state.last_alert_time[alert_key] = now
+                            st.session_state.last_alert_time[alert_key] = now_kst
                             alerts.append(f"📊 {coin} 피보나치 {ratio} 돌파")
-    
+
     return alerts
 
 # ---------------------- 메인 애플리케이션 ----------------------
@@ -491,6 +494,16 @@ def main():
     }
     timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '4시간'}
     
+    # 메인 타이틀 및 코인 비교 테이블(작은 글씨) 최상단 배치
+    st.markdown(
+        """
+        <div style='margin-bottom:0;'>
+            <h1 style='color:#39FF14; background:#000; font-family:Consolas,monospace; margin-bottom:0; font-size:2.2rem;'>🌊 코인 차트 통합 분석 시스템</h1>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     # 사이드바 설정
     with st.sidebar:
         st.header("⚙️ 제어 패널")
@@ -527,14 +540,16 @@ def main():
     pattern_alerts = check_pattern_alerts(MARKETS, timeframes, selected_tf)
     st.session_state.alerts.extend(pattern_alerts)
     
-    # 실시간 알림 표시
-    st.subheader("🔔 실시간 분석 알림")
+    # 실시간 알림 표시 (글자 삭제, 알림만 표시)
     for alert in st.session_state.alerts[-10:]:
         alert_type = "fib-alert" if "피보나치" in alert else "wave-alert" if "파동" in alert else ""
         st.markdown(f"<div class='{alert_type}'>{alert}</div>", unsafe_allow_html=True)
     
-    # 코인 비교 테이블 생성
-    st.subheader(f"📊 코인 비교 테이블 ({timeframes[selected_tf]}봉)")
+    # 코인 비교 테이블 (작은 글씨, 투자현황과 동일한 사이즈)
+    st.markdown(
+        f"<div style='font-size:15px; color:#39FF14; margin-top:0; margin-bottom:0; font-family:Consolas,monospace;'>📊 코인 비교 테이블 ({timeframes[selected_tf]}봉)</div>",
+        unsafe_allow_html=True
+    )
     prices = get_current_prices(MARKETS)
     table_data = []
     
@@ -567,10 +582,9 @@ def main():
             '수량 차이': f"{diff_qty:+,.2f}" if isinstance(diff_qty, float) else diff_qty
         })
     
-    # 테이블 표시
     df_table = pd.DataFrame(table_data)
     st.dataframe(df_table, use_container_width=True)
-    
+
     # 개별 코인 차트 및 AI 예측 표시
     for market in MARKETS:
         coin = market.split('-')[1]
