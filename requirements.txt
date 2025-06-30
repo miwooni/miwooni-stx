@@ -1,16 +1,11 @@
 # requirements.txt 최종 정리 (✅ Cloud 호환, 컴파일 불필요)
-
-streamlit==1.45.1
-streamlit-autorefresh==1.0.1
-plotly==6.1.2
-pandas==2.3.0
-numpy==1.23.5
-scikit-learn==1.4.2
-joblib==1.5.1
-requests==2.32.4
-tensorflow==2.19.0
-xgboost==2.0.3
-
-# Prophet (cmdstanpy 기반으로만 작동)
-cmdstanpy==1.2.1
-prophet==1.1.4
+numpy==1.24.4
+pandas==2.0.3
+streamlit==1.32.2
+plotly==5.22.0
+requests==2.32.3
+streamlit_autorefresh==0.4.1
+scikit-learn==1.4.0
+tensorflow==2.16.1
+neuralprophet==1.0.1  # Prophet 대체용
+cmdstanpy==1.2.0
