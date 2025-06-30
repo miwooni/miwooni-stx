@@ -1,10 +1,8 @@
-# requirements.txt 최종 정리 (✅ Cloud 호환, 컴파일 불필요)
-
 streamlit==1.45.1
 streamlit-autorefresh==1.0.1
 plotly==6.1.2
 pandas==2.3.0
-numpy==1.23.5
+numpy==1.26.4          # ✅ tensorflow 호환 버전
 scikit-learn==1.4.2
 joblib==1.5.1
 requests==2.32.4
