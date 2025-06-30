@@ -15,6 +15,26 @@ from prophet import Prophet
 import logging
 import re
 
+
+
+# 비밀번호 설정 (노출주의)Add commentMore actions
+PASSWORD = "Fudfud8080@"
+
+# 세션 상태 초기화
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+# 인증 처리
+if not st.session_state.authenticated:
+    st.title("🔐 궁금하지? 모카꺼야!!")
+    password = st.text_input("비밀번호를 입력하세요:", type="password")
+    if password == PASSWORD:
+        st.session_state.authenticated = True
+        st.experimental_rerun()
+    elif password != "":
+        st.error("❌ 비밀번호가 틀렸습니다.")
+    st.stop()  # 아래 코드 실행 방지
+
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
