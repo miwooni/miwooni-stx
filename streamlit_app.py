@@ -412,12 +412,7 @@ def init_dashboard():
         .coin-report { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #3498db; }
         </style>
     """, unsafe_allow_html=True)
-    
-    st.markdown(
-        "<h1 class='text-white' style='text-align:center;font-family:Consolas,monospace;'>"
-        "🌊 코인 차트 통합 분석 시스템</h1>",
-        unsafe_allow_html=True
-    )
+
     st_autorefresh(interval=5000, key="auto_refresh")
     
     # 세션 상태 초기화
