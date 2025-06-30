@@ -15,7 +15,7 @@ from prophet import Prophet
 import logging
 import re
 import cmdstanpy
-cmdstanpy.install_cmdstan()  # 최초 실행 시 한 번만 실행됨
+cmdstanpy.install_cmdstan()  # 최초 실행 시 자동 설치
 
 
 # 비밀번호 설정 (노출주의)
