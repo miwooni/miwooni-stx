@@ -1,2 +1,25 @@
-@ -1,12 +1,14 @@streamlit==1.45.1Add commentMore actionsplotly==6.1.2prophet==1.1.4pystan==2.19.1.1numpy==1.23.5pandas==2.3.0requests==2.32.4tensorflow==2.19.0joblib==1.5.1streamlit-autorefresh==1.0.1plotly==6.1.2scikit-learn==1.4.2xgboost==2.0.3numpy==1.23.5pystan==2.19.1.1prophet==1.1.4joblib==1.5.1requests==2.32.4pygments==2.15.1markdown-it-py==2.2.0mdurl==0.1.2rich==13.3.5typing-extensions==4.14.0
-0 commit commentsComments0
+# 프로젝트 핵심 의존성
+streamlit==1.31.0
+pandas==2.2.1
+numpy==1.26.4
+requests==2.31.0
+plotly==5.20.0
+scikit-learn==1.4.2
+tensorflow==2.16.1
+prophet==1.1.5
+streamlit_autorefresh==0.4.1
+
+# Prophet을 위한 추가 의존성
+pystan~=2.14
+holidays==0.45
+lunardate==0.0.9
+convertdate==2.4.0
+tqdm==4.66.2
+
+# 데이터 처리 및 시각화
+matplotlib==3.8.3
+seaborn==0.13.2
+
+# 기타 유틸리티
+python-dotenv==1.0.1
+loguru==0.7.2
