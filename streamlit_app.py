@@ -1,632 +1,587 @@
-# 통합-STX_최종-피보나치+엘리엇.py
 import streamlit as st
 import pandas as pd
 import numpy as np
-import requests
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
-from streamlit_autorefresh import st_autorefresh
-import random
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
-from prophet import Prophet
-import logging
-import re
+import math
+import json
+import time
+import asyncio
+import aiohttp
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 
+# 색상 정의
+DOS_GREEN = "#00FF00"
+DOS_BG = "#000000"
 
+# 상수 정의
+INCH_TO_MM = 25.4
+PI = math.pi
 
-# 비밀번호 설정 (노출주의)Add commentMore actions
-PASSWORD = "Fudfud8080@"
+# 비밀번호 설정
+PASSWORD = "1234"  # 실제 사용시 변경
 
-# 세션 상태 초기화
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+# 피치 유형 정의
+PITCH_TYPES = {
+    '10" (6피치+4피치)': {'pitch': 10, 'density': 2},
+    '8"': {'pitch': 8, 'density': 1},
+    '6"': {'pitch': 6, 'density': 1}
+}
 
-# 인증 처리
-if not st.session_state.authenticated:
-    st.title("🔐 궁금하지? 모카꺼야!!")
-    password = st.text_input("비밀번호를 입력하세요:", type="password")
-    if password == PASSWORD:
-        st.session_state.authenticated = True
-        st.rerun()
-    elif password != "":
-        st.error("❌ 비밀번호가 틀렸습니다.")
-    st.stop()  # 아래 코드 실행 방지
+# 부품 목록
+PARTS = [
+    {'id': 'main_chain', 'name': '메인 체인', 'unit': 'm', 'default_purchase': 21000, 'default_sale': 27500},
+    {'id': 'link', 'name': '연결 링크', 'unit': '개', 'default_purchase': 6500, 'default_sale': 11000},
+    {'id': 'troly', 'name': '트로리', 'unit': '조', 'default_purchase': 3500, 'default_sale': 5000},
+    {'id': 'bolt', 'name': '렌치볼트 (M6x35L)', 'unit': '개', 'default_purchase': 200, 'default_sale': 250},
+    {'id': 'nut', 'name': '나이론 너트 (M6)', 'unit': '개', 'default_purchase': 100, 'default_sale': 150},
+    {'id': 'assembly', 'name': '트로리 조립 인건비', 'unit': 'm', 'default_purchase': 5500, 'default_sale': 6000},
+    {'id': 'shackle1', 'name': '1차 샤클 (킬링샤클)', 'unit': '개', 'default_purchase': 10000, 'default_sale': 15000},
+    {'id': 'shackle2', 'name': '2차 샤클 (내장샤클)', 'unit': '개', 'default_purchase': 12000, 'default_sale': 18000},
+    {'id': 'pack_shackle', 'name': '팩샤클', 'unit': '개', 'default_purchase': 8000, 'default_sale': 12000},
+    {'id': 'airchilling_shackle', 'name': '에어칠링 샤클', 'unit': '개', 'default_purchase': 15000, 'default_sale': 22000},
+]
 
-# ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 샤클 규격 옵션
+SHACKLE_SIZES = ["6\"", "8\"", "10\""]
+SHACKLE_PRICES = {
+    '6"': {'purchase': 10000, 'sale': 15000},
+    '8"': {'purchase': 12000, 'sale': 18000},
+    '10"': {'purchase': 15000, 'sale': 22000},
+}
 
-# ---------------------- 상수 정의 ----------------------
-TOTAL_INVESTMENT = 58500000
-TELEGRAM_TOKEN = "7545404316:AAHMdayWZjwEZmZwd5JrKXPDn5wUQfivpTw"
-TELEGRAM_CHAT_ID = "7890657899"
-MARKETS = ['KRW-STX', 'KRW-HBAR', 'KRW-DOGE']
+# 초기 데이터프레임 (캐싱 적용)
+@st.cache_data
+def init_data():
+    return pd.DataFrame([{
+        '품목': p['name'], '규격': p['id'], '단위': p['unit'],
+        '수량': 0, '구매 단가': p['default_purchase'], '판매 단가': p['default_sale'],
+        '구매 금액': 0, '판매 금액': 0
+    } for p in PARTS])
 
-# ---------------------- 공통 함수 정의 ----------------------
-def send_telegram_alert(message: str, parse_mode="Markdown"):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID, 
-        "text": message,
-        "parse_mode": parse_mode
+# 수량 계산 (캐싱 적용)
+@st.cache_data
+def calculate_requirements(pitch_type, length):
+    pitch_data = PITCH_TYPES.get(pitch_type, {'pitch': 6, 'density': 1})
+    pitch_mm = pitch_data['pitch'] * INCH_TO_MM
+    density = pitch_data['density']
+
+    troly_per_m = (1000 / pitch_mm) * density
+    troly_count = round(troly_per_m * length)
+
+    # 샤클 자동 계산
+    shackle_qty = 0
+    shackle_size = ""
+    if pitch_data['pitch'] == 6:
+        shackle_qty = round(length * (1000 / (6 * INCH_TO_MM)))
+        shackle_size = '6"'
+    elif pitch_data['pitch'] == 8:
+        shackle_qty = round(length * (1000 / (8 * INCH_TO_MM)))
+        shackle_size = '8"'
+    elif pitch_data['pitch'] == 10:
+        shackle_qty = round(length * (1000 / (10 * INCH_TO_MM)))
+        shackle_size = '10"'
+
+    return {
+        'main_chain': length,
+        'link': max(1, round(length / 20)),
+        'troly': troly_count,
+        'bolt': troly_count * 2,
+        'nut': troly_count * 2,
+        'assembly': length,
+        'shackle1': shackle_qty,
+        'shackle2': shackle_qty,
+        'pack_shackle': 0,
+        'airchilling_shackle': 0,
+        'shackle_size': shackle_size
     }
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status()
-        return True
-    except Exception as e:
-        logger.error(f"Telegram 알림 전송 실패: {str(e)}")
-        return False
 
-def parse_number(x):
-    """문자열/숫자 혼합 데이터를 float으로 변환"""
-    if isinstance(x, (int, float)):
-        return float(x)
-    if isinstance(x, str):
-        cleaned = re.sub(r'[^\d.]', '', x)
-        return float(cleaned) if cleaned else 0.0
-    return 0.0
+# PCD 계산 함수 (벡터화)
+def calculate_pcd_vectorized(teeth_count, pitch_inch):
+    pitch_mm = pitch_inch * INCH_TO_MM
+    return (pitch_mm * teeth_count) / PI
 
-# ---------------------- 기술적 분석 함수 ----------------------
-def calculate_fibonacci_levels(df, period=50):
-    """피보나치 되돌림 수준 계산"""
-    if len(df) < period:
-        period = len(df)
+# 스프라켓 계산 함수 (최적화)
+def calculate_sprocket_travel(sprocket_pcd, motor_rpm, reduction_ratio):
+    sprocket_circumference = sprocket_pcd * math.pi
+    travel_per_min = motor_rpm * sprocket_circumference
+    travel_per_sec = travel_per_min / 60
+    travel_per_sec_reduced = travel_per_sec / reduction_ratio
     
-    recent_high = df['high'].tail(period).max()
-    recent_low = df['low'].tail(period).min()
-    
-    diff = recent_high - recent_low
-    if diff == 0:
-        return None, None, None
-    
-    levels = {
-        '0.0': recent_low,
-        '0.236': recent_high - diff * 0.236,
-        '0.382': recent_high - diff * 0.382,
-        '0.5': recent_high - diff * 0.5,
-        '0.618': recent_high - diff * 0.618,
-        '0.786': recent_high - diff * 0.786,
-        '1.0': recent_high
+    return {
+        "circumference": sprocket_circumference,
+        "per_min": travel_per_min,
+        "per_sec": travel_per_sec,
+        "per_sec_reduced": travel_per_sec_reduced
     }
-    return recent_high, recent_low, levels
 
-def detect_wave_patterns(df):
-    """엘리엇 파동 이론 기반 패턴 감지"""
-    patterns = []
-    if len(df) < 10:
-        return patterns
+# 최종 비용 계산 (벡터화)
+def calculate_final_costs(df, quote_mode):
+    if quote_mode == "internal":
+        df['구매 금액'] = df['수량'] * df['구매 단가']
+    df['판매 금액'] = df['수량'] * df['판매 단가']
     
-    # 최근 10개 봉 분석
-    closes = df['close'].values[-10:]
-    highs = df['high'].values[-10:]
-    lows = df['low'].values[-10:]
+    total_sale = df['판매 금액'].sum()
+    results = {"total_sale": total_sale, "item_count": len(df)}
     
-    # 임펄스 파동 (상승 5파)
-    if (lows[0] < lows[2] < lows[4] < lows[6] < lows[8] and
-        highs[1] < highs[3] < highs[5] < highs[7] < highs[9] and
-        lows[1] > lows[0] and lows[3] > lows[2] and lows[5] > lows[4] and lows[7] > lows[6]):
-        patterns.append("상승 임펄스 파동 (5파 진행중)")
-    
-    # 조정 파동 (ABC 패턴)
-    if (highs[0] > highs[2] > highs[4] and
-        lows[1] > lows[3] > lows[5] and
-        closes[6] > closes[7] and closes[7] < closes[8]):
-        patterns.append("ABC 조정 파동 완료 예상")
-    
-    # 확장 파동 (상승 5파 확장)
-    if (lows[0] < lows[1] < lows[2] < lows[3] < lows[4] and
-        highs[0] < highs[1] < highs[2] < highs[3] < highs[4] and
-        lows[5] > lows[4] and highs[6] > highs[5] and lows[7] > lows[6] and highs[8] > highs[7] and
-        lows[9] < lows[8]):
-        patterns.append("확장 상승 파동 (3파 확장)")
-    
-    return patterns
-
-def detect_chart_patterns(df):
-    """차트 패턴 감지 (피보나치 + 엘리엇 파동 통합)"""
-    patterns = detect_wave_patterns(df)
-    if len(df) < 7: 
-        return patterns
-    
-    # W 패턴 (이중 바닥)
-    last5 = df.iloc[-5:]
-    lows = last5['low'].values
-    if (lows[0] > lows[1] and 
-        lows[1] < lows[2] and 
-        lows[2] > lows[3] and 
-        lows[3] < lows[4]):
-        patterns.append("W 패턴(하락 예측)")
-    
-    # M 패턴 (이중 천정)
-    highs = last5['high'].values
-    if (highs[0] < highs[1] and 
-        highs[1] > highs[2] and 
-        highs[2] < highs[3] and 
-        highs[3] > highs[4]):
-        patterns.append("M 패턴(상승 예측)")
-    
-    # 삼중 바닥 패턴
-    if len(df) >= 7:
-        last7 = df.iloc[-7:]
-        l7 = last7['low'].values
-        if (l7[0] > l7[1] and 
-            l7[1] < l7[2] and 
-            l7[2] > l7[3] and 
-            l7[3] < l7[4] and 
-            l7[4] > l7[5] and 
-            l7[5] < l7[6]):
-            patterns.append("강한 상승 예측")
-    
-    # 역 헤드 앤 숄더 (상승 전환)
-    if len(df) >= 7:
-        last7 = df.iloc[-7:]
-        lows = last7['low'].values
-    if (lows[0] > lows[1] and 
-        lows[1] < lows[2] and 
-        lows[2] > lows[3] and 
-        lows[3] < lows[4] and 
-        lows[4] > lows[5] and 
-        lows[5] < lows[6]):
-        patterns.append("역 헤드앤숄더(강한 상승 예측)")
-
-    # 헤드 앤 숄더 (하락 전환)
-    if len(df) >= 7:
-        last7 = df.iloc[-7:]
-        highs = last7['high'].values
-    if (highs[0] < highs[1] and 
-        highs[1] > highs[2] and 
-        highs[2] < highs[3] and 
-        highs[3] > highs[4] and 
-        highs[4] < highs[5] and 
-        highs[5] > highs[6]):
-        patterns.append("헤드앤숄더(강한 하락 예측)")
-    
-    return patterns
-
-# ---------------------- AI 예측 모델 ----------------------
-def ai_price_predict(df, current_price, selected_tf, n_future=5):
-    """AI 가격 예측 (LSTM + Prophet 앙상블)"""
-    if len(df) < 60:
-        change_percent = random.uniform(-0.02, 0.02)
-        predicted = current_price * (1 + change_percent)
-        trend = "상승" if change_percent > 0.005 else "하락" if change_percent < -0.005 else "유지"
-        emoji = "📈" if trend == "상승" else "📉" if trend == "하락" else "⚖️"
-        return round(predicted, 1), f"{emoji} {trend}", None
-    
-    try:
-        # Prophet 예측
-        prophet_df = df[['datetime', 'close']].copy()
-        prophet_df = prophet_df.rename(columns={'datetime': 'ds', 'close': 'y'})
-        prophet_model = Prophet(daily_seasonality=True)
-        prophet_model.fit(prophet_df)
-        future = prophet_model.make_future_dataframe(periods=n_future, freq=f'{selected_tf}min')
-        prophet_forecast = prophet_model.predict(future)
-        prophet_pred = prophet_forecast['yhat'][-n_future:].values
-        
-        # 앙상블 예측 (Prophet에 가중치 100% 적용)
-        ensemble_pred = prophet_pred
-        
-        # 결과 분석
-        avg_pred = np.mean(ensemble_pred)
-        change_percent = (avg_pred - current_price) / current_price
-        trend = "상승" if change_percent > 0.005 else "하락" if change_percent < -0.005 else "유지"
-        emoji = "📈" if trend == "상승" else "📉" if trend == "하락" else "⚖️"
-        
-        # 예측 차트 생성
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df['datetime'][-50:],
-            y=df['close'][-50:],
-            name='실제 가격',
-            line=dict(color='blue'))
-        )
-
-        future_dates = pd.date_range(
-            start=df['datetime'].iloc[-1],
-            periods=n_future+1,
-            freq=f'{selected_tf}min'
-        )[1:]
-
-        fig.add_trace(go.Scatter(
-            x=future_dates,
-            y=ensemble_pred,
-            name='AI 예측 가격',
-            line=dict(color='red', dash='dot'))
-        )
-
-        fig.update_layout(
-            title=f"AI 가격 예측 (앙상블 모델)",
-            xaxis_title="시간",
-            yaxis_title="가격 (원)",
-            showlegend=True,
-            height=400
-        )
-        
-        return round(avg_pred, 1), f"{emoji} {trend}", fig
-        
-    except Exception as e:
-        logger.error(f"AI 예측 오류: {str(e)}")
-        change_percent = random.uniform(-0.02, 0.02)
-        predicted = current_price * (1 + change_percent)
-        trend = "상승" if change_percent > 0.005 else "하락" if change_percent < -0.005 else "유지"
-        emoji = "📈" if trend == "상승" else "📉" if trend == "하락" else "⚖️"
-        return round(predicted, 1), f"{emoji} {trend}", None
-
-# ---------------------- 데이터 처리 ----------------------
-@st.cache_data(ttl=30, show_spinner=False)
-def fetch_ohlcv(market, timeframe, count=300):
-    """OHLCV 데이터 조회"""
-    try:
-        url = f"https://api.upbit.com/v1/candles/minutes/{timeframe}"
-        params = {'market': market, 'count': count}
-        res = requests.get(url, params=params, timeout=15)
-        res.raise_for_status()
-        data = res.json()
-        
-        if not data:
-            return pd.DataFrame()
-            
-        df = pd.DataFrame(data)
-        column_mapping = {
-            'candle_date_time_kst': 'datetime',
-            'opening_price': 'open',
-            'high_price': 'high',
-            'low_price': 'low',
-            'trade_price': 'close',
-            'candle_acc_trade_volume': 'volume'
-        }
-        df = df.rename(columns=column_mapping)[list(column_mapping.values())]
-        df = df.iloc[::-1].reset_index(drop=True)
-        df['datetime'] = pd.to_datetime(df['datetime'], utc=False)
-        
-        # 기술적 지표 계산
-        if len(df) > 16:
-            df['HL2'] = (df['high'] + df['low']) / 2
-            df['HMA'] = df['HL2'].rolling(16).mean()  # HMA 대신 SMA 사용
-            df['HMA3'] = df['HL2'].rolling(3).mean()
-            delta = df['close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-            rs = gain / loss
-            df['RSI'] = 100 - (100 / (1 + rs))
-            
-            # MACD 계산
-            exp1 = df['close'].ewm(span=12, adjust=False).mean()
-            exp2 = df['close'].ewm(span=26, adjust=False).mean()
-            df['MACD_line'] = exp1 - exp2
-            df['MACD_hist'] = df['MACD_line'] - df['MACD_line'].ewm(span=9, adjust=False).mean()
-            
-            # 볼린저 밴드
-            ma = df['close'].rolling(20).mean()
-            std = df['close'].rolling(20).std()
-            df['BB_upper'] = ma + (std * 2)
-            df['BB_lower'] = ma - (std * 2)
-            
-        return df
-    
-    except Exception as e:
-        logger.error(f"{market} 데이터 조회 실패: {str(e)}")
-        return pd.DataFrame()
-
-@st.cache_data(ttl=10, show_spinner=False)
-def get_current_prices(markets):
-    """현재 가격 조회"""
-    try:
-        res = requests.get(f"https://api.upbit.com/v1/ticker?markets={','.join(markets)}", timeout=10)
-        res.raise_for_status()
-        return {item['market']: {
-            'trade_price': item['trade_price'],
-            'signed_change_rate': item['signed_change_rate']
-        } for item in res.json()}
-    except Exception as e:
-        logger.error(f"현재 가격 조회 실패: {str(e)}")
-        return {}
-
-# ---------------------- 시각화 함수 ----------------------
-def create_coin_chart(df, coin, tf_name):
-    """코인 차트 생성 (피보나치 수준 포함)"""
-    if df.empty or 'close' not in df.columns:
-        return None
-        
-    try:
-        latest = df.iloc[-1]
-        current_price = latest['close']
-
-        fig = make_subplots(
-            rows=3, cols=1, shared_xaxes=True, 
-            vertical_spacing=0.03, row_heights=[0.6, 0.2, 0.2],
-            specs=[[{"secondary_y": True}], [{}], [{}]]
-        )
-        
-        # 캔들스틱 차트
-        fig.add_trace(go.Candlestick(
-            x=df['datetime'], open=df['open'], high=df['high'],
-            low=df['low'], close=df['close'], name="Price"), row=1, col=1)
-        
-        # 현재가 주석
-        fig.add_hline(
-            y=current_price, line_dash="solid", line_color="orange", row=1, col=1,
-            annotation_text=f"현재가: {current_price:,.1f}",
-            annotation_position="bottom right",
-            annotation_font_size=12,
-            annotation_font_color="orange"
-        )
-        
-        # 피보나치 되돌림 라인
-        _, _, fib_levels = calculate_fibonacci_levels(df)
-        if fib_levels:
-            colors = ['#FF6B6B', '#4ECDC4', '#556270', '#C06C84', '#6C5B7B', '#355C7D']
-            for i, (ratio, level) in enumerate(fib_levels.items()):
-                fig.add_hline(
-                    y=level, line_dash="dash", line_color=colors[i % len(colors)],
-                    row=1, col=1, annotation_text=f"Fib {ratio} ({level:,.1f})",
-                    annotation_position="bottom right"
-                )
-        
-        # 기술적 지표
-        if 'HMA' in df.columns:
-            fig.add_trace(go.Scatter(x=df['datetime'], y=df['HMA'], name='HMA', line=dict(color='blue')), row=1, col=1)
-        if 'HMA3' in df.columns:
-            fig.add_trace(go.Scatter(x=df['datetime'], y=df['HMA3'], name='HMA3', line=dict(color='orange')), row=1, col=1)
-        if 'BB_upper' in df.columns:
-            fig.add_trace(go.Scatter(x=df['datetime'], y=df['BB_upper'], name='BB Upper', line=dict(color='gray', dash='dot')), row=1, col=1)
-        if 'BB_lower' in df.columns:
-            fig.add_trace(go.Scatter(x=df['datetime'], y=df['BB_lower'], name='BB Lower', line=dict(color='gray', dash='dot')), row=1, col=1)
-        if 'volume' in df.columns:
-            fig.add_trace(go.Bar(x=df['datetime'], y=df['volume'], name='Volume',
-                            marker_color=np.where(df['close'] > df['open'], 'green', 'red')),
-                    row=1, col=1, secondary_y=True)
-        if 'RSI' in df.columns:
-            fig.add_trace(go.Scatter(x=df['datetime'], y=df['RSI'], name='RSI', line=dict(color='purple')), row=2, col=1)
-            fig.add_hline(y=30, line_dash="dot", line_color="red", row=2, col=1)
-            fig.add_hline(y=70, line_dash="dot", line_color="red", row=2, col=1)
-        if 'MACD_hist' in df.columns:
-            fig.add_trace(go.Bar(x=df['datetime'], y=df['MACD_hist'], name='Histogram',
-                            marker_color=np.where(df['MACD_hist'] > 0, 'green', 'red')), row=3, col=1)
-
-        fig.update_layout(
-            height=800, title=f"{coin} 차트 ({tf_name})",
-            xaxis_rangeslider_visible=False, margin=dict(t=40, b=40),
-            showlegend=True
-        )
-        
-        return fig
-        
-    except Exception as e:
-        logger.error(f"{coin} 차트 생성 오류: {str(e)}")
-        return None
-
-# ---------------------- 대시보드 초기화 ----------------------
-def init_dashboard():
-    st.set_page_config(layout="wide")
-    st.markdown("""
-        <style>
-        .text-white { color: #fff !important; text-shadow: 1px 1px 0 #000; }
-        .metric-container { padding: 10px; border-radius: 10px; background: #1e1e1e; margin: 10px 0; }
-        .fib-alert { background: linear-gradient(135deg, #1a5276, #3498db); padding: 15px; border-radius: 10px; margin: 10px 0; }
-        .wave-alert { background: linear-gradient(135deg, #6c5b7b, #c06c84); padding: 15px; border-radius: 10px; margin: 10px 0; }
-        .coin-report { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #3498db; }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st_autorefresh(interval=5000, key="auto_refresh")
-    
-    # 세션 상태 초기화
-    if 'alerts' not in st.session_state:
-        st.session_state.alerts = []
-    if 'last_alert_time' not in st.session_state:
-        st.session_state.last_alert_time = {}
-    if 'last_table_alert_time' not in st.session_state:
-        st.session_state.last_table_alert_time = datetime.min
-    if 'ai_progress' not in st.session_state:
-        st.session_state.ai_progress = {'STX': 0, 'HBAR': 0, 'DOGE': 0}
-
-# ---------------------- 알림 시스템 ----------------------
-def check_pattern_alerts(markets, timeframes, selected_tf):
-    """패턴 알림 체크 및 발송"""
-    alerts = []
-    # 한국 시간(KST)으로 현재 시간 계산 (UTC+9)
-    now_utc = datetime.utcnow()
-    now_kst = now_utc + timedelta(hours=9)
-
-    for market in markets:
-        coin = market.split('-')[1]
-        df = fetch_ohlcv(market, selected_tf)
-        if df.empty:
-            continue
-
-        current_price = df.iloc[-1]['close']
-        tf_name = timeframes[selected_tf]
-
-        # 파동 패턴 감지
-        wave_patterns = detect_wave_patterns(df)
-        for pattern in wave_patterns:
-            alert_key = f"{coin}_{pattern[:10]}_pattern"
-            last_alert = st.session_state.last_alert_time.get(alert_key, datetime.min)
-
-            # 한국 시간으로 변환된 감지 시간 사용
-            if (now_kst - last_alert) > timedelta(minutes=10):
-                message = (
-                    f"🌊 *{coin} {tf_name}차트 파동 패턴 감지!*\n"
-                    f"📊 패턴 유형: {pattern}\n"
-                    f"💰 현재 가격: `{current_price:,.1f}` 원\n"
-                    f"📅 감지 시간: {now_kst.strftime('%m-%d %H:%M')}"
-                )
-                if send_telegram_alert(message):
-                    st.session_state.last_alert_time[alert_key] = now_kst
-                    alerts.append(f"🌊 {coin} 파동 패턴: {pattern} ({now_kst.strftime('%m-%d %H:%M KST')})")
-
-        # 피보나치 돌파 감지
-        high, _, fib_levels = calculate_fibonacci_levels(df)
-        if fib_levels and current_price > high:
-            for ratio, level in fib_levels.items():
-                if current_price > level:
-                    alert_key = f"{coin}_fib_{ratio}"
-                    last_alert = st.session_state.last_alert_time.get(alert_key, datetime.min)
-
-                    if (now_kst - last_alert) > timedelta(minutes=30):
-                        message = (
-                            f"🚨 *{coin} {tf_name}차트 피보나치 돌파 알림!*\n"
-                            f"📈 현재 가격: `{current_price:,.1f}` 원\n"
-                            f"🎯 피보나치 {ratio} 수준 돌파\n"
-                            f"💎 예상 목표가: `{level:,.1f}` 원"
-                        )
-                        if send_telegram_alert(message):
-                            st.session_state.last_alert_time[alert_key] = now_kst
-                            alerts.append(f"📊 {coin} 피보나치 {ratio} 돌파")
-
-    return alerts
-
-# ---------------------- 메인 애플리케이션 ----------------------
-def main():
-    # 초기화
-    init_dashboard()
-    
-    # 전역 변수
-    default_holdings = {
-        'KRW-STX': 14073.68834666,
-        'KRW-HBAR': 62216.22494886,
-        'KRW-DOGE': 61194.37067502,
-    }
-    timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '4시간'}
-    
-    # 메인 타이틀 및 코인 비교 테이블(작은 글씨) 최상단 배치
-    st.markdown(
-        """
-        <div style='margin-bottom:0;'>
-            <h1 style='color:#39FF14; background:#000; font-family:Consolas,monospace; margin-bottom:0; font-size:2.2rem;'>🌊 코인 차트 통합 분석 시스템</h1>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # 사이드바 설정
-    with st.sidebar:
-        st.header("⚙️ 제어 패널")
-        selected_tf = st.selectbox(
-            '차트 주기', list(timeframes.keys()), 
-            format_func=lambda x: timeframes[x], index=2
-        )
-        
-        st.subheader("💰 투자 현황")
-        prices = get_current_prices(MARKETS)
-        stx_price = prices.get('KRW-STX', {}).get('trade_price', 0)
-        stx_value = default_holdings['KRW-STX'] * stx_price
-        profit = stx_value - TOTAL_INVESTMENT
-        profit_percent = (profit / TOTAL_INVESTMENT) * 100
-        
-        st.metric("총 투자금액", f"{TOTAL_INVESTMENT:,.0f} 원")
-        st.metric("STX 자산가치", 
-                 f"{stx_value:,.0f} 원", 
-                 f"{profit:+,.0f} 원 ({profit_percent:+.2f}%)",
-                 delta_color="inverse" if profit < 0 else "normal")
-        st.metric("STX 보유량", f"{default_holdings['KRW-STX']:,.2f} EA")
-        
-        st.subheader("🔔 알림 설정")
-        telegram_enabled = st.checkbox("텔레그램 알림 활성화", value=True)
-        alert_interval = st.slider("알림 주기(분)", 1, 60, 10)
-        
-        st.subheader("🧠 AI 학습상황")
-        for coin in st.session_state.ai_progress:
-            progress = min(st.session_state.ai_progress[coin] + random.randint(2, 6), 100)
-            st.session_state.ai_progress[coin] = progress
-            st.progress(progress, text=f"{coin}: {progress}%")
-
-    # 실시간 알림 처리
-    pattern_alerts = check_pattern_alerts(MARKETS, timeframes, selected_tf)
-    st.session_state.alerts.extend(pattern_alerts)
-    
-    # 실시간 알림 표시 (글자 삭제, 알림만 표시)
-    for alert in st.session_state.alerts[-10:]:
-        alert_type = "fib-alert" if "피보나치" in alert else "wave-alert" if "파동" in alert else ""
-        st.markdown(f"<div class='{alert_type}'>{alert}</div>", unsafe_allow_html=True)
-    
-    # 코인 비교 테이블 (작은 글씨, 투자현황과 동일한 사이즈)
-    st.markdown(
-        f"<div style='font-size:15px; color:#39FF14; margin-top:0; margin-bottom:0; font-family:Consolas,monospace;'>📊 코인 비교 테이블 ({timeframes[selected_tf]}봉)</div>",
-        unsafe_allow_html=True
-    )
-    prices = get_current_prices(MARKETS)
-    table_data = []
-    
-    for market in MARKETS:
-        coin = market.split('-')[1]
-        price_data = prices.get(market, {})
-        price = price_data.get('trade_price', 0)
-        change_rate = price_data.get('signed_change_rate', 0) * 100
-        
-        # AI 예측
-        df = fetch_ohlcv(market, selected_tf)
-        ai_pred, ai_trend, ai_fig = ai_price_predict(df, price, selected_tf)
-        
-        # 대체 수량 계산 (STX 기준)
-        if market != 'KRW-STX':
-            stx_price = prices.get('KRW-STX', {}).get('trade_price', 1)
-            replace_qty = (default_holdings['KRW-STX'] * stx_price * 0.9995) / price
-            diff_qty = replace_qty - default_holdings[market]
-        else:
-            replace_qty = "-"
-            diff_qty = "-"
-        
-        table_data.append({
-            '코인명': coin,
-            '현재가': f"{price:,.1f} 원",
-            '변동율': f"{change_rate:+.2f}%",
-            'AI 예측': f"{ai_pred:,.1f} 원",
-            'AI 전망': ai_trend,
-            '대체 수량': f"{replace_qty:,.2f}" if isinstance(replace_qty, float) else replace_qty,
-            '수량 차이': f"{diff_qty:+,.2f}" if isinstance(diff_qty, float) else diff_qty
+    if quote_mode == "internal":
+        total_purchase = df['구매 금액'].sum()
+        total_profit = total_sale - total_purchase
+        profit_margin = (total_profit / total_purchase * 100) if total_purchase > 0 else 0
+        results.update({
+            "total_purchase": total_purchase,
+            "total_profit": total_profit,
+            "profit_margin": profit_margin
         })
     
-    df_table = pd.DataFrame(table_data)
-    st.dataframe(df_table, use_container_width=True)
+    return results
 
-    # 개별 코인 차트 및 AI 예측 표시
-    for market in MARKETS:
-        coin = market.split('-')[1]
-        df = fetch_ohlcv(market, selected_tf)
-        if df.empty:
-            continue
-            
-        price = df.iloc[-1]['close']
-        ai_pred, ai_trend, ai_fig = ai_price_predict(df, price, selected_tf)
+# 고속 Ollama 챗봇 (스트리밍 + 비동기)
+async def ollama_chat_async():
+    st.header("⚡ 고속 Ollama AI 챗봇")
+    
+    # 세션 상태 초기화
+    if "ollama_messages" not in st.session_state:
+        st.session_state.ollama_messages = [
+            {"role": "system", "content": "사용자의 질문에 간결하고 정확하게 답변하세요. 답변은 3문장 이내로 요약하세요."}
+        ]
+    
+    # 채팅 기록 표시
+    for msg in st.session_state.ollama_messages:
+        if msg["role"] != "system":
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"], unsafe_allow_html=True)
+    
+    # 사용자 입력 처리
+    if prompt := st.chat_input("Ollama에게 질문하세요 (엔터를 누르세요)"):
+        # 사용자 메시지 추가
+        st.session_state.ollama_messages.append({"role": "user", "content": prompt})
         
-        # 차트 표시
-        with st.expander(f"{coin} 분석", expanded=True):
-            col1, col2 = st.columns([0.7, 0.3])
+        with st.chat_message("user"):
+            st.markdown(prompt, unsafe_allow_html=True)
+        
+        # AI 응답 플레이스홀더
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            full_response = ""
             
-            with col1:
-                # 실시간 차트
-                chart = create_coin_chart(df, coin, timeframes[selected_tf])
-                if chart:
-                    st.plotly_chart(chart, use_container_width=True)
+            # Ollama 스트리밍 API 호출
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.post(
+                        "http://localhost:11434/api/chat",
+                        json={
+                            "model": "llama3",  # 더 빠른 모델 사용
+                            "messages": st.session_state.ollama_messages,
+                            "stream": True,
+                            "options": {
+                                "temperature": 0.3,  # 창의성 감소
+                                "num_ctx": 1024,     # 컨텍스트 크기 축소
+                                "num_predict": 256   # 최대 출력 길이 제한
+                            }
+                        }
+                    ) as response:
+                        
+                        # 스트리밍 응답 처리
+                        async for chunk in response.content:
+                            if chunk:
+                                decoded_chunk = chunk.decode('utf-8')
+                                if decoded_chunk.strip():
+                                    try:
+                                        json_chunk = json.loads(decoded_chunk)
+                                        content_chunk = json_chunk.get('message', {}).get('content', '')
+                                        if content_chunk:
+                                            full_response += content_chunk
+                                            message_placeholder.markdown(full_response + "▌")
+                                    except json.JSONDecodeError:
+                                        pass
+                    
+                    # 최종 응답 업데이트
+                    message_placeholder.markdown(full_response)
+                    
+                    # 세션 상태 업데이트
+                    st.session_state.ollama_messages.append({"role": "assistant", "content": full_response})
+                    
+                except Exception as e:
+                    st.error(f"Ollama 연결 오류: {str(e)}")
+                    st.info("Ollama가 실행 중인지 확인해주세요. 설치 가이드: https://ollama.com/")
+
+# Streamlit 앱
+def main():
+    st.set_page_config(
+        page_title="초고속 체인 견적기", 
+        page_icon="⚡", 
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+
+    # 성능 최적화 CSS
+    st.markdown(f"""
+    <style>
+        /* 기본 스타일 최적화 */
+        body, .stApp {{ background-color: {DOS_BG}; color: {DOS_GREEN}; }}
+        .st-bq, .st-cb, .st-cd, .st-ce, .st-cf, .st-cg, .st-ch {{ color: {DOS_GREEN} !important; }}
+        
+        /* 폰트 최적화 */
+        * {{ 
+            font-family: 'Courier New', monospace !important; 
+            font-size: 1.1em !important;
+        }}
+        
+        /* 데이터 테이블 최적화 */
+        .stDataFrame {{ 
+            font-size: 0.9em !important;
+            max-height: 500px;
+            overflow: auto;
+        }}
+        
+        /* 채팅창 최적화 */
+        .stChatMessage {{
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }}
+        .stChatInput {{ 
+            position: fixed;
+            bottom: 2rem;
+            width: calc(100% - 4rem);
+            background: {DOS_BG};
+            z-index: 100;
+        }}
+        
+        /* 버튼 최적화 */
+        .stButton>button {{
+            background-color: #333;
+            color: {DOS_GREEN};
+            border: 1px solid {DOS_GREEN};
+            padding: 0.3em 1em;
+            font-weight: bold;
+        }}
+        
+        /* 사이드바 최적화 */
+        .stSidebar {{
+            background-color: #111 !important;
+        }}
+        
+        /* 애니메이션 제거 */
+        * {{ 
+            transition: none !important; 
+            animation: none !important;
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.title("⚡ 초고속 오버헤드 트로리 견적 시스템")
+
+    # 세션 상태 초기화
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+    if 'quote_mode' not in st.session_state:
+        st.session_state.quote_mode = "internal"
+    if 'prev_troly' not in st.session_state:
+        st.session_state.prev_troly = None
+    if 'pitch_type' not in st.session_state:
+        st.session_state.pitch_type = '10" (6피치+4피치)'
+    if 'chain_length' not in st.session_state:
+        st.session_state.chain_length = 20.0
+
+    # 메뉴 선택 (사이드바)
+    with st.sidebar:
+        st.header("⚡ 고속 메뉴")
+        menu_options = [
+            "예상견적가", 
+            "도계라인 길이 계산", 
+            "도계라인 체류시간 계산", 
+            "도계라인 속도 계산", 
+            "스프라켓/모터 이동 거리 계산",
+            "PCD 계산기",
+            "Ollama 챗봇"
+        ]
+        menu = st.radio("계산기 선택", menu_options, index=0)
+        
+        if menu == "예상견적가":
+            st.markdown("---")
+            st.header("견적 모드")
+            quote_mode = st.radio(
+                "모드 선택", 
+                ["내부용 (모든 정보 표시)", "고객용 (내부 정보 숨김)"],
+                index=0 if st.session_state.quote_mode == "internal" else 1,
+                key="quote_mode_selector"
+            )
+            st.session_state.quote_mode = "internal" if quote_mode == "내부용 (모든 정보 표시)" else "customer"
             
-            with col2:
-                # AI 예측 정보
-                st.subheader(f"🔮 {coin} AI 예측")
-                st.metric("예측 가격", f"{ai_pred:,.1f} 원")
-                st.metric("전망", ai_trend)
+            st.markdown("---")
+            st.header("시스템 설정")
+            
+            pitch_type_options = list(PITCH_TYPES.keys())
+            pitch_type = st.selectbox(
+                "피치 유형",
+                pitch_type_options,
+                index=pitch_type_options.index(st.session_state.pitch_type),
+                key='pitch_type'
+            )
+            length = st.number_input("길이 (m)", min_value=1.0, 
+                                    value=st.session_state.chain_length, 
+                                    step=1.0, key="chain_length", format="%.2f")
+
+        st.markdown("---")
+        st.markdown("""
+        <div style="color:#39FF14; font-size:0.9em; text-align:center;">
+            <span>© 2024 주식회사 티제이젠<br>All Rights Reserved.</span><br>
+            <span style="display:block;margin-top:10px;font-weight:bold;">
+            ⚡ SUNG JIN KANG
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 메인 화면 처리
+    if menu == "도계라인 길이 계산":
+        st.header("⚡ 도계라인 길이 계산기")
+        with st.form("length_calculator"):
+            col1, col2 = st.columns(2)
+            speed1 = col1.number_input("도계속도 (수/HR)", value=12500, min_value=1)
+            pitch1 = col1.selectbox("샤클 피치 (인치)", [6, 8, 10], index=0)
+            time1 = col2.number_input("체류시간 (초)", value=253, min_value=1)
+            
+            if st.form_submit_button("계산", use_container_width=True):
+                length_m = (speed1 * pitch1 * INCH_TO_MM * time1) / (3600 * 1000)
+                st.session_state.calculated_length = length_m
+                st.success(f"계산된 길이: **{length_m:.2f} m**")
+                minutes, seconds = divmod(time1, 60)
+                st.info(f"체류시간: {time1}초 ({int(minutes)}분 {int(seconds)}초)")
+
+    elif menu == "도계라인 체류시간 계산":
+        st.header("⚡ 도계라인 체류시간 계산기")
+        with st.form("time_calculator"):
+            col1, col2 = st.columns(2)
+            speed2 = col1.number_input("도계속도 (수/HR)", value=12500, min_value=1)
+            pitch2 = col1.selectbox("샤클 피치 (인치)", [6, 8, 10], index=0)
+            distance2 = col2.number_input("거리 (mm)", value=90000.0, min_value=0.1)
+            
+            if st.form_submit_button("계산", use_container_width=True):
+                time_sec = (distance2 * 3600) / (speed2 * pitch2 * INCH_TO_MM)
+                st.success(f"계산된 체류시간: **{time_sec:.2f} 초**")
+                minutes, seconds = divmod(time_sec, 60)
+                st.info(f"({int(minutes)}분 {int(seconds)}초)")
+
+    elif menu == "도계라인 속도 계산":
+        st.header("⚡ 도계라인 속도 계산기")
+        with st.form("speed_calculator"):
+            col1, col2 = st.columns(2)
+            pitch3 = col1.selectbox("샤클 피치 (인치)", [6, 8, 10], index=0)
+            time3 = col1.number_input("체류시간 (초)", value=120967, min_value=1)
+            distance3 = col2.number_input("거리 (m)", value=88.8, min_value=0.1)
+            
+            if st.form_submit_button("계산", use_container_width=True):
+                speed_hr = (distance3 * 1000 * 3600) / (pitch3 * INCH_TO_MM * time3)
+                st.success(f"계산된 도계속도: **{speed_hr:.2f} 수/HR**")
+                minutes, seconds = divmod(time3, 60)
+                st.info(f"체류시간: {int(minutes)}분 {int(seconds)}초")
+
+    elif menu == "스프라켓/모터 이동 거리 계산":
+        st.header("⚡ 스프라켓/모터 이동 거리 계산기")
+        with st.form("sprocket_calculator"):
+            col1, col2 = st.columns(2)
+            sprocket_pcd = col1.number_input("스프라켓 PCD (mm)", value=168.0, min_value=1.0, step=1.0)
+            motor_rpm = col1.number_input("모터 RPM", value=1750, min_value=1, step=1)
+            reduction_ratio = col2.number_input("감속비", value=60.0, min_value=0.1, step=1.0)
+            
+            if st.form_submit_button("계산", use_container_width=True):
+                results = calculate_sprocket_travel(sprocket_pcd, motor_rpm, reduction_ratio)
                 
-                if ai_fig:
-                    st.plotly_chart(ai_fig, use_container_width=True)
+                st.metric("초당 이동 거리", f"{results['per_sec_reduced']:.2f} mm/sec")
+                st.write(f"스프라켓 원주: {results['circumference']:.2f} mm")
+                st.write(f"분당 이동 거리: {results['per_min']:.2f} mm/min")
+                st.write(f"초당 이동 거리: {results['per_sec']:.2f} mm/sec")
+    
+    elif menu == "PCD 계산기":
+        st.header("⚡ PCD 계산기")
+        tab1, tab2 = st.tabs(["자동기계용", "구동기어용"])
+        
+        with tab1:
+            with st.form("pcd_calculator_auto"):
+                col1, col2 = st.columns(2)
+                pitch_inch = col1.selectbox("피치 (인치)", options=[6, 8, 10], index=1, key="auto_pitch_inch")
+                teeth = col1.number_input("기어 톱니 수", min_value=1, value=21, step=1, key="auto_teeth")
+                pcd = col2.number_input("PCD (mm)", min_value=0.1, value=1358.292, step=0.001, format="%.3f", key="auto_pcd")
                 
-                # 피보나치 분석
-                high, low, fib_levels = calculate_fibonacci_levels(df)
-                if fib_levels:
-                    st.subheader("📊 피보나치 수준")
-                    for ratio, level in fib_levels.items():
-                        st.write(f"- **{ratio}**: `{level:,.1f}` 원")
+                col1b, col2b = st.columns(2)
+                calculate_pcd = col1b.form_submit_button("PCD 계산")
+                calculate_teeth = col2b.form_submit_button("톱니 수 계산")
                 
-                # 파동 패턴
-                patterns = detect_wave_patterns(df)
-                if patterns:
-                    st.subheader("🌊 파동 패턴")
-                    for pattern in patterns:
-                        st.write(f"- {pattern}")
+                if calculate_pcd:
+                    calculated_pcd = calculate_pcd_vectorized(teeth, pitch_inch)
+                    rounded_pcd = math.floor(calculated_pcd * 2) / 2
+                    st.success(f"**계산된 PCD**: {rounded_pcd} mm")
+                    
+                if calculate_teeth:
+                    calculated_teeth = (pcd * PI) / (pitch_inch * INCH_TO_MM)
+                    st.success(f"**계산된 기어 톱니 수**: {calculated_teeth:.2f} 개")
+
+        with tab2:
+            with st.form("pcd_calculator_drive"):
+                col1, col2 = st.columns(2)
+                teeth_drive = col1.number_input("기어 톱니 수", min_value=1, value=20, step=1, key="drive_teeth")
+                pcd_drive = col2.number_input("PCD (mm)", min_value=0.1, value=323.0, step=0.001, format="%.3f", key="drive_pcd")
+                
+                col1b, col2b = st.columns(2)
+                calculate_pcd_drive = col1b.form_submit_button("PCD 계산")
+                calculate_teeth_drive = col2b.form_submit_button("톱니 수 계산")
+                
+                if calculate_pcd_drive:
+                    calculated_pcd_drive = (323 / 20) * teeth_drive
+                    rounded_pcd_drive = int((calculated_pcd_drive + 4.9999) // 5 * 5)
+                    st.success(f"**계산된 PCD**: {rounded_pcd_drive} mm")
+                
+                if calculate_teeth_drive:
+                    calculated_teeth_drive = pcd_drive / (323 / 20)
+                    st.success(f"**계산된 기어 톱니 수**: {calculated_teeth_drive:.2f} 개")
+    
+    elif menu == "Ollama 챗봇":
+        asyncio.run(ollama_chat_async())
+
+    elif menu == "예상견적가":
+        # 비밀번호 인증 체크
+        if not st.session_state.authenticated:
+            with st.container():
+                st.markdown("""
+                <div style="background-color:#222; padding:25px; border-radius:15px; text-align:center;">
+                    <h2 style='color:#39FF14;'>내부 견적 분석</h2>
+                    <p style='font-size:1.2em;'>비밀번호를 입력하여 잠금 해제</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                password = st.text_input("비밀번호", type="password", key="quote_password")
+                
+                if st.button("잠금 해제", use_container_width=True):
+                    if password == PASSWORD:
+                        st.session_state.authenticated = True
+                        st.rerun()
+                    else:
+                        st.error("잘못된 비밀번호입니다.")
+            return
+        
+        # 인증된 사용자에 대한 견적 화면
+        pitch_type = st.session_state.pitch_type
+        length = st.session_state.chain_length
+        requirements = calculate_requirements(pitch_type, length)
+        pitch_data = PITCH_TYPES.get(pitch_type, {'pitch': 6, 'density': 1})
+        pitch_mm = pitch_data['pitch'] * INCH_TO_MM
+        density = pitch_data['density']
+        troly_per_m = (1000 / pitch_mm) * density
+        troly_total = requirements['troly']
+
+        # 수량 변경 알림
+        if st.session_state.prev_troly is not None and troly_total > st.session_state.prev_troly:
+            st.warning(f"트로리 수량 증가: {st.session_state.prev_troly} → {troly_total}조")
+        st.session_state.prev_troly = troly_total
+
+        # 상단 메트릭
+        cols = st.columns(4)
+        cols[0].metric("피치유형", pitch_type)
+        cols[1].metric("피치 (mm)", f"{pitch_mm:.1f} mm")
+        cols[2].metric("트로리/1m", f"{troly_per_m:.2f} 조")
+        cols[3].metric("총 트로리", f"{troly_total} 조")
+
+        st.caption(f"**계산식**: (1000 / ({pitch_data['pitch']} × 25.4)) × {density} × {length} = {troly_total}조")
+
+        # 데이터 초기화
+        df = init_data()
+        for i, row in df.iterrows():
+            part_id = row['규격']
+            if part_id in requirements:
+                df.at[i, '수량'] = requirements[part_id]
+
+        # 샤클 단가 설정
+        shackle_size = requirements.get('shackle_size', '6"')
+        for shackle_id in ['shackle1', 'shackle2']:
+            idx = df[df['규격'] == shackle_id].index
+            if not idx.empty and shackle_size in SHACKLE_PRICES:
+                price_info = SHACKLE_PRICES[shackle_size]
+                df.at[idx[0], '구매 단가'] = price_info['purchase']
+                df.at[idx[0], '판매 단가'] = price_info['sale']
+
+        # 샤클 규격 선택
+        with st.expander("샤클 규격 설정"):
+            col1, col2 = st.columns(2)
+            shackle1_size = col1.selectbox("1차 샤클 규격", SHACKLE_SIZES, index=SHACKLE_SIZES.index(shackle_size), key="shackle1_size")
+            shackle2_size = col2.selectbox("2차 샤클 규격", SHACKLE_SIZES, index=SHACKLE_SIZES.index(shackle_size), key="shackle2_size")
+            
+            # 샤클 업데이트
+            for shackle_id, size in [('shackle1', shackle1_size), ('shackle2', shackle2_size)]:
+                idx = df[df['규격'] == shackle_id].index
+                if not idx.empty and size in SHACKLE_PRICES:
+                    price_info = SHACKLE_PRICES[size]
+                    df.at[idx[0], '구매 단가'] = price_info['purchase']
+                    df.at[idx[0], '판매 단가'] = price_info['sale']
+
+        # 부품 테이블
+        st.subheader("부품 목록 및 가격")
+        
+        # 품목 필터링
+        base_items = ['메인 체인', '연결 링크', '트로리', '렌치볼트 (M6x35L)', '나이론 너트 (M6)', '트로리 조립 인건비']
+        selectable_items = [item for item in df['품목'].tolist() if item not in base_items]
+        
+        if selectable_items:
+            visible_items = st.multiselect(
+                "추가 품목 선택",
+                options=selectable_items,
+                default=selectable_items
+            )
+            filtered_df = df[df['품목'].isin(base_items + visible_items)]
+        else:
+            filtered_df = df[df['품목'].isin(base_items)]
+
+        # 데이터 에디터
+        if st.session_state.quote_mode == "internal":
+            edited_df = st.data_editor(filtered_df[['품목', '규격', '단위', '수량', '구매 단가', '판매 단가']])
+        else:
+            edited_df = st.data_editor(filtered_df[['품목', '규격', '단위', '수량', '판매 단가']])
+
+        # 내부용 모드에서 이익률 조정
+        if st.session_state.quote_mode == "internal":
+            with st.expander("이익률 설정"):
+                for part in PARTS:
+                    filtered = edited_df[edited_df['규격'] == part['id']]
+                    if not filtered.empty:
+                        purchase_price = filtered.iloc[0]['구매 단가']
+                        sale_price = filtered.iloc[0]['판매 단가']
+                        margin = ((sale_price - purchase_price) / purchase_price * 100) if purchase_price > 0 else 0
+                        
+                        new_margin = st.slider(
+                            f"{part['name']} 이익률 (%)", 
+                            -100.0, 500.0, float(margin), step=1.0,
+                            key=f"margin_{part['id']}"
+                        )
+                        new_sale_price = purchase_price * (1 + new_margin / 100)
+                        edited_df.loc[edited_df['규격'] == part['id'], '판매 단가'] = new_sale_price
+
+        # 최종 계산
+        final_results = calculate_final_costs(edited_df, st.session_state.quote_mode)
+        
+        # 결과 표시
+        st.subheader("최종 견적 요약")
+        if st.session_state.quote_mode == "internal":
+            cols = st.columns(4)
+            cols[0].metric("총 구매 비용", f"{final_results['total_purchase']:,.0f} 원")
+            cols[1].metric("총 판매 금액", f"{final_results['total_sale']:,.0f} 원")
+            cols[2].metric("예상 이익", f"{final_results['total_profit']:,.0f} 원")
+            cols[3].metric("이익률", f"{final_results['profit_margin']:.2f} %")
+        else:
+            cols = st.columns(2)
+            cols[0].metric("총 견적 금액", f"{final_results['total_sale']:,.0f} 원")
+            cols[1].metric("총 부품 수", f"{final_results['item_count']} 항목")
+
+        # 테이블 표시
+        if st.session_state.quote_mode == "internal":
+            st.dataframe(edited_df[['품목', '단위', '수량', '구매 단가', '판매 단가', '구매 금액', '판매 금액']])
+        else:
+            st.dataframe(edited_df[['품목', '단위', '수량', '판매 단가', '판매 금액']])
+        
+        # 잠금 버튼
+        if st.session_state.quote_mode == "internal":
+            if st.button("🔒 잠금", use_container_width=True):
+                st.session_state.authenticated = False
+                st.rerun()
 
 if __name__ == "__main__":
     main()
