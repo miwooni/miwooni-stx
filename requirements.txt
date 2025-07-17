@@ -1,9 +1,8 @@
-streamlit
 pandas
 matplotlib
 numpy
 pytube
 requests
 beautifulsoup4
-Pillow
 PyMuPDF
+Pillow
