@@ -38,6 +38,10 @@ st.markdown("""
         background-color: #006600;
         color: #00FF00;
         border: 1px solid #00FF00;
+        font-weight: bold;
+        padding: 10px 20px;
+        border-radius: 5px;
+        margin: 5px 0;
     }
     .stButton>button:hover {
         background-color: #004400;
@@ -47,10 +51,14 @@ st.markdown("""
     .stTextInput>div>div>input, .stTextArea>div>div>textarea {
         background-color: #001100;
         color: #00FF00;
+        border: 1px solid #00FF00;
+        border-radius: 5px;
+        padding: 10px;
     }
     .stSelectbox>div>div>select {
         background-color: #001100;
         color: #00FF00;
+        border: 1px solid #00FF00;
     }
     .stRadio>div {
         background-color: #001100;
@@ -110,6 +118,67 @@ st.markdown("""
         background-color: #000000 !important; /* 배경을 어두운 색으로 대비 ↑ */
         border: 1px solid #00FF00 !important; /* 테두리도 형광색으로 */
     }
+    /* 홈 화면 그리드 스타일 */
+    .subject-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+    }
+    .subject-card {
+        background-color: #002200;
+        border: 1px solid #00FF00;
+        border-radius: 10px;
+        padding: 15px;
+        transition: all 0.3s ease;
+    }
+    .subject-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 255, 0, 0.3);
+    }
+    .subject-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+        color: #00FF00;
+    }
+    .button-container {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 10px;
+    }
+    .glossary-section {
+        background-color: #001100;
+        border: 1px solid #00FF00;
+        border-radius: 10px;
+        padding: 20px;
+        height: 100%;
+    }
+    .glossary-title {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+        color: #00FF00;
+    }
+    .subject-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .subject-buttons button {
+        flex: 1;
+        min-width: 120px;
+    }
+    .edit-form {
+        background-color: #001a00;
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 15px;
+        border: 1px solid #00cc00;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -118,7 +187,7 @@ def show_developer_credit():
     st.sidebar.divider()
     # 사이드바에 이미지 추가 (크기 40% 확대: 150 -> 210)
     try:
-        st.sidebar.image("화면 캡처 2025-07-15 094924.jpg", width=210)
+        st.sidebar.image("moca.jpg", width=210)
         st.sidebar.markdown("<center>나는 할 수 밖에 없다.!!!<br>⚡ Made by Sung Jin ⚡</center>", unsafe_allow_html=True)
     except:
         st.sidebar.markdown("""
@@ -239,21 +308,99 @@ def integrate_comcbt_exam():
 # --- 홈 화면 ---
 def home():
     st.title("불가능은 있다!! 하지만 난 불가능에 도전한다!!")
-    st.markdown("""
-    ### 🚀 간절하지 않으면 생각도 말라 !!!. 🚀
-    - **🧠 CBT 모의고사**: COMCBT 통합 모의고사
-    - **🎥 동영상 학습**: 필요한 강의만 집중해서 시청
-    - **📚 학습 자료**: 과목별 학습 메모 관리
-    - **📖 용어집**: 전기기사 필수 용어 사전
-    - **📊 학습 통계**: 나의 학습 패턴 분석
-    """)
+    st.markdown("### 🚀 간절하지 않으면 생각도 말라 !!!")
+
+    # 화면을 두 개의 열로 분할
+    col1, col2 = st.columns([1, 1])
     
-    # 홈 화면 이미지
-    try:
-        st.image("화면 캡처 2025-07-15 094924.jpg", 
-                 use_container_width=True, caption="모카 멋진척 하기!!!")
-    except:
-        pass
+    with col1:
+        st.markdown("### 📚 학습 자료")
+        subjects = ["전기이론", "전기기기", "전력공학", "회로이론", "전기설비"]
+        
+        # 그리드 레이아웃 생성
+        st.markdown('<div class="subject-grid">', unsafe_allow_html=True)
+        
+        for subject in subjects:
+            st.markdown(f"""
+            <div class="subject-card">
+                <div class="subject-title">{subject}</div>
+                <div class="button-container">
+                    <button class="stButton" onclick="setVideoSubject('{subject}')">동영상 학습</button>
+                    <button class="stButton" onclick="setMaterialSubject('{subject}')">자료 학습</button>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # JavaScript 함수 추가
+        st.markdown("""
+        <script>
+        function setVideoSubject(subject) {
+            const videoSubject = document.createElement('input');
+            videoSubject.type = 'hidden';
+            videoSubject.name = 'video_subject';
+            videoSubject.value = subject;
+            document.body.appendChild(videoSubject);
+            
+            const menu = document.querySelector('input[name="main_menu"][value="🎥 동영상 학습"]');
+            if (menu) {
+                menu.click();
+            }
+        }
+        
+        function setMaterialSubject(subject) {
+            const materialSubject = document.createElement('input');
+            materialSubject.type = 'hidden';
+            materialSubject.name = 'list_subject';
+            materialSubject.value = subject;
+            document.body.appendChild(materialSubject);
+            
+            const menu = document.querySelector('input[name="main_menu"][value="📚 학습 자료"]');
+            if (menu) {
+                menu.click();
+            }
+        }
+        </script>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### 📖 용어집")
+        st.markdown('<div class="glossary-section">', unsafe_allow_html=True)
+        
+        # 용어 검색
+        search_term = st.text_input("용어 검색", key="home_search_term")
+        
+        # 검색 실행
+        if search_term:
+            terms = db_query(
+                "glossary.db",
+                "SELECT term, definition FROM glossary WHERE term LIKE ? OR definition LIKE ? LIMIT 5",
+                (f"%{search_term}%", f"%{search_term}%"),
+                fetch=True
+            )
+        else:
+            # 최근 추가된 용어 5개 표시
+            terms = db_query(
+                "glossary.db",
+                "SELECT term, definition FROM glossary ORDER BY timestamp DESC LIMIT 5",
+                fetch=True
+            )
+        
+        if terms:
+            for term, definition in terms:
+                st.markdown(f"**{term}**")
+                st.markdown(f"> {definition[:100]}{'...' if len(definition) > 100 else ''}")
+                st.divider()
+        else:
+            st.info("검색된 용어가 없습니다.")
+        
+        # 용어 추가 바로가기 버튼
+        if st.button("새 용어 추가", key="add_term_home"):
+            st.session_state['main_menu'] = "📖 용어집"
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 사이드바 메뉴 ---
 def sidebar_menu():
@@ -280,7 +427,15 @@ def video_learning():
     
     # 과목 선택
     subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
-    selected_subject = st.selectbox("과목 선택", subjects, key="video_subject")
+    
+    # 홈에서 선택한 과목이 있으면 사용
+    if 'video_subject' in st.session_state and st.session_state.video_subject:
+        default_subject = st.session_state.video_subject
+        del st.session_state.video_subject
+    else:
+        default_subject = subjects[0]
+    
+    selected_subject = st.selectbox("과목 선택", subjects, index=subjects.index(default_subject) if default_subject in subjects else 0, key="video_subject")
     
     # 정렬 기준 선택
     sort_options = ["제목순", "인기순", "최신순"]
@@ -421,51 +576,110 @@ def video_learning():
         # 사용자 ID 고정값 사용
         user_id = "miwooni"
         
-        # 과목 선택
-        material_subject = st.selectbox(
-            "과목 선택", 
-            subjects,
-            key="material_subject"
-        )
+        # 과목 선택 버튼 그룹
+        st.markdown("### 과목 선택")
+        subjects = ["전기이론", "전기기기", "전력공학", "회로이론", "전기설비"]
+        col1, col2 = st.columns(2)
+        subject_cols = [col1, col2, col1, col2, col1]  # 2열 그리드
         
-        # 제목 입력
-        material_title = st.text_input("제목", key="material_title")
+        selected_subject = st.session_state.get("material_subject", subjects[0])
         
-        # 내용 입력 (20줄로 확대)
-        material_content = st.text_area("내용", height=400, key="material_content")
+        # 버튼 생성
+        for i, subject in enumerate(subjects):
+            with subject_cols[i]:
+                if st.button(subject, key=f"subj_{subject}", 
+                             type="primary" if subject == selected_subject else "secondary"):
+                    st.session_state.material_subject = subject
         
-        # 저장 버튼
-        if st.button("학습 자료 저장", key="save_material"):
-            if material_title and material_content:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                db_query(
-                    "study_materials.db",
-                    "INSERT INTO study_materials (user_id, subject, title, content, timestamp) VALUES (?, ?, ?, ?, ?)",
-                    (user_id, material_subject, material_title, material_content, timestamp)
-                )
-                st.success("학습 자료가 저장되었습니다!")
-            else:
-                st.warning("제목과 내용을 입력해주세요")
+        # 검색 기능 추가
+        search_term = st.text_input("학습자료 검색", key="material_search")
         
-        # 저장된 학습 자료 보기
-        st.subheader("저장된 학습 자료")
-        materials = db_query(
-            "study_materials.db",
-            "SELECT id, subject, title, content, timestamp FROM study_materials WHERE user_id=? ORDER BY timestamp DESC",
-            (user_id,),
-            fetch=True
-        )
+        # 저장된 학습 자료 보기 (검색 적용)
+        query = "SELECT id, title, content, timestamp FROM study_materials WHERE user_id=? AND subject=?"
+        params = [user_id, selected_subject]
+        
+        if search_term:
+            query += " AND (title LIKE ? OR content LIKE ?)"
+            params.extend([f"%{search_term}%", f"%{search_term}%"])
+        
+        query += " ORDER BY timestamp DESC LIMIT 5"
+        
+        materials = db_query("study_materials.db", query, params, fetch=True)
         
         if materials:
             for material in materials:
-                mat_id, subject, title, content, timestamp = material
-                with st.expander(f"{subject} - {title} ({timestamp[:10]})", expanded=False):
+                mat_id, title, content, timestamp = material
+                with st.expander(f"{title} ({timestamp[:10]})", expanded=False):
                     st.write(content)
-                    if st.button("삭제", key=f"delete_mat_{mat_id}"):
-                        db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
-                        st.rerun()
+                    
+                    # 수정 및 삭제 버튼
+                    col_edit, col_delete = st.columns([1, 1])
+                    with col_edit:
+                        if st.button("수정", key=f"edit_mat_{mat_id}"):
+                            st.session_state['edit_material'] = mat_id
+                    with col_delete:
+                        if st.button("삭제", key=f"delete_mat_{mat_id}"):
+                            db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
+                            st.rerun()
         else:
             st.info("저장된 학습 자료가 없습니다.")
+        
+        # 새 학습 자료 추가 (아래에 expander로)
+        with st.expander("새 학습 자료 추가", expanded=False):
+            with st.form("material_form"):
+                material_title = st.text_input("제목", key="material_title")
+                material_content = st.text_area("내용", height=150, key="material_content")
+                submitted = st.form_submit_button("저장")
+                
+                if submitted:
+                    if material_title and material_content:
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        db_query(
+                            "study_materials.db",
+                            "INSERT INTO study_materials (user_id, subject, title, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+                            (user_id, selected_subject, material_title, material_content, timestamp)
+                        )
+                        st.success("학습 자료가 저장되었습니다!")
+                        st.rerun()
+                    else:
+                        st.warning("제목과 내용을 입력해주세요")
+        
+        # 학습 자료 수정 폼
+        if 'edit_material' in st.session_state:
+            mat_id = st.session_state['edit_material']
+            material = db_query(
+                "study_materials.db",
+                "SELECT title, content FROM study_materials WHERE id=?",
+                (mat_id,),
+                fetch_one=True
+            )
+            
+            if material:
+                title, content = material
+                with st.expander("학습 자료 수정", expanded=True):
+                    with st.form(f"edit_form_{mat_id}"):
+                        new_title = st.text_input("제목", value=title, key=f"edit_title_{mat_id}")
+                        new_content = st.text_area("내용", value=content, height=150, key=f"edit_content_{mat_id}")
+                        
+                        col_save, col_cancel = st.columns([1, 1])
+                        with col_save:
+                            save_btn = st.form_submit_button("저장")
+                        with col_cancel:
+                            cancel_btn = st.form_submit_button("취소")
+                        
+                        if save_btn:
+                            db_query(
+                                "study_materials.db",
+                                "UPDATE study_materials SET title=?, content=? WHERE id=?",
+                                (new_title, new_content, mat_id)
+                            )
+                            del st.session_state['edit_material']
+                            st.success("학습 자료가 수정되었습니다!")
+                            st.rerun()
+                        
+                        if cancel_btn:
+                            del st.session_state['edit_material']
+                            st.rerun()
 
 # --- 학습 자료 화면 (왼쪽 학습자료, 오른쪽 용어집) ---
 def study_materials():
@@ -487,14 +701,33 @@ def study_materials():
         page_size = 5  # 페이지당 자료 수
         
         # 과목 선택
-        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
-        selected_subject = st.selectbox("과목 선택", subjects, key="list_subject")
+        subjects = ["전기이론", "전기기기", "전력공학", "회로이론", "전기설비"]
+        
+        # 홈에서 선택한 과목이 있으면 사용
+        if 'list_subject' in st.session_state and st.session_state.list_subject:
+            default_subject = st.session_state.list_subject
+        else:
+            default_subject = subjects[0]
+        
+        selected_subject = st.selectbox("과목 선택", subjects, 
+                                       index=subjects.index(default_subject) if default_subject in subjects else 0, 
+                                       key="list_subject")
+        
+        # 검색 기능 추가
+        search_term = st.text_input("학습자료 검색", key="list_search")
         
         # 전체 학습 자료 수 조회
+        query_count = "SELECT COUNT(*) FROM study_materials WHERE user_id=? AND subject=?"
+        params_count = [user_id, selected_subject]
+        
+        if search_term:
+            query_count += " AND (title LIKE ? OR content LIKE ?)"
+            params_count.extend([f"%{search_term}%", f"%{search_term}%"])
+        
         total_materials = db_query(
             "study_materials.db",
-            "SELECT COUNT(*) FROM study_materials WHERE user_id=? AND subject=?",
-            (user_id, selected_subject),
+            query_count,
+            params_count,
             fetch_one=True
         )[0]
         
@@ -503,10 +736,20 @@ def study_materials():
         offset = (st.session_state.material_page - 1) * page_size
         
         # 현재 페이지 학습 자료 조회
+        query = "SELECT id, title, content, timestamp FROM study_materials WHERE user_id=? AND subject=?"
+        params = [user_id, selected_subject]
+        
+        if search_term:
+            query += " AND (title LIKE ? OR content LIKE ?)"
+            params.extend([f"%{search_term}%", f"%{search_term}%"])
+        
+        query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        params.extend([page_size, offset])
+        
         materials = db_query(
             "study_materials.db",
-            "SELECT id, title, content, timestamp FROM study_materials WHERE user_id=? AND subject=? ORDER BY timestamp DESC LIMIT ? OFFSET ?",
-            (user_id, selected_subject, page_size, offset),
+            query,
+            params,
             fetch=True
         )
         
@@ -515,9 +758,16 @@ def study_materials():
                 mat_id, title, content, timestamp = material
                 with st.expander(f"{title} ({timestamp[:10]})", expanded=False):
                     st.write(content)
-                    if st.button("삭제", key=f"delete_list_{mat_id}"):
-                        db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
-                        st.rerun()
+                    
+                    # 수정 및 삭제 버튼
+                    col_edit, col_delete = st.columns([1, 1])
+                    with col_edit:
+                        if st.button("수정", key=f"edit_list_{mat_id}"):
+                            st.session_state['edit_material'] = mat_id
+                    with col_delete:
+                        if st.button("삭제", key=f"delete_list_{mat_id}"):
+                            db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
+                            st.rerun()
         else:
             st.info("해당 과목의 학습 자료가 없습니다.")
         
@@ -538,6 +788,43 @@ def study_materials():
                 if st.button("다음 ▶", key="next_mat", disabled=st.session_state.material_page >= total_pages):
                     st.session_state.material_page += 1
                     st.rerun()
+        
+        # 학습 자료 수정 폼
+        if 'edit_material' in st.session_state:
+            mat_id = st.session_state['edit_material']
+            material = db_query(
+                "study_materials.db",
+                "SELECT title, content FROM study_materials WHERE id=?",
+                (mat_id,),
+                fetch_one=True
+            )
+            
+            if material:
+                title, content = material
+                st.subheader("학습 자료 수정")
+                with st.form(f"edit_form_{mat_id}"):
+                    new_title = st.text_input("제목", value=title, key=f"edit_title_{mat_id}")
+                    new_content = st.text_area("내용", value=content, height=300, key=f"edit_content_{mat_id}")
+                    
+                    col_save, col_cancel = st.columns([1, 1])
+                    with col_save:
+                        save_btn = st.form_submit_button("저장")
+                    with col_cancel:
+                        cancel_btn = st.form_submit_button("취소")
+                    
+                    if save_btn:
+                        db_query(
+                            "study_materials.db",
+                            "UPDATE study_materials SET title=?, content=? WHERE id=?",
+                            (new_title, new_content, mat_id)
+                        )
+                        del st.session_state['edit_material']
+                        st.success("학습 자료가 수정되었습니다!")
+                        st.rerun()
+                    
+                    if cancel_btn:
+                        del st.session_state['edit_material']
+                        st.rerun()
     
     with col_glossary:
         # 용어집
@@ -626,11 +913,76 @@ def study_materials():
                             if image_path and os.path.exists(image_path):
                                 st.image(image_path, caption=f"{term} 이미지", use_container_width=True)
                             
-                            if st.button("삭제", key=f"delete_{term_id}"):
-                                db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
-                                st.rerun()
+                            # 수정 및 삭제 버튼
+                            col_edit, col_delete = st.columns([1, 1])
+                            with col_edit:
+                                if st.button("수정", key=f"edit_term_{term_id}"):
+                                    st.session_state['edit_term'] = term_id
+                            with col_delete:
+                                if st.button("삭제", key=f"delete_{term_id}"):
+                                    db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
+                                    st.rerun()
         else:
             st.info("용어가 없습니다. 위에서 새로운 용어를 추가해주세요.")
+        
+        # 용어 수정 폼
+        if 'edit_term' in st.session_state:
+            term_id = st.session_state['edit_term']
+            term_data = db_query(
+                "glossary.db",
+                "SELECT term, definition, subject, image_path FROM glossary WHERE id=?",
+                (term_id,),
+                fetch_one=True
+            )
+            
+            if term_data:
+                term, definition, subject, image_path = term_data
+                st.subheader("용어 수정")
+                with st.form(f"edit_term_form_{term_id}"):
+                    new_term = st.text_input("용어", value=term, key=f"edit_term_{term_id}")
+                    new_definition = st.text_area("정의", value=definition, height=150, key=f"edit_def_{term_id}")
+                    new_subject = st.selectbox(
+                        "과목", 
+                        ["공통", "전기이론", "전기기기", "전력공학", "회로이론", "전기설비"],
+                        index=["공통", "전기이론", "전기기기", "전력공학", "회로이론", "전기설비"].index(subject),
+                        key=f"edit_subj_{term_id}"
+                    )
+                    
+                    # 기존 이미지 표시
+                    if image_path and os.path.exists(image_path):
+                        st.image(image_path, caption="현재 이미지", width=200)
+                    
+                    # 새 이미지 업로드
+                    new_image = st.file_uploader(
+                        "새 이미지 업로드 (선택사항)", 
+                        type=['jpg', 'jpeg', 'png'], 
+                        key=f"edit_img_{term_id}"
+                    )
+                    
+                    col_save, col_cancel = st.columns([1, 1])
+                    with col_save:
+                        save_btn = st.form_submit_button("저장")
+                    with col_cancel:
+                        cancel_btn = st.form_submit_button("취소")
+                    
+                    if save_btn:
+                        # 이미지 업데이트 처리
+                        updated_image_path = image_path
+                        if new_image is not None:
+                            updated_image_path = save_uploaded_image(new_image)
+                        
+                        db_query(
+                            "glossary.db",
+                            "UPDATE glossary SET term=?, definition=?, subject=?, image_path=? WHERE id=?",
+                            (new_term, new_definition, new_subject, updated_image_path, term_id)
+                        )
+                        del st.session_state['edit_term']
+                        st.success("용어가 수정되었습니다!")
+                        st.rerun()
+                    
+                    if cancel_btn:
+                        del st.session_state['edit_term']
+                        st.rerun()
 
 # --- 용어집 화면 (이미지 업로드 기능 추가) ---
 def glossary():
@@ -721,11 +1073,76 @@ def glossary():
                         if image_path and os.path.exists(image_path):
                             st.image(image_path, caption=f"{term} 이미지", use_container_width=True)
                         
-                        if st.button("삭제", key=f"delete_{term_id}"):
-                            db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
-                            st.rerun()
+                        # 수정 및 삭제 버튼
+                        col_edit, col_delete = st.columns([1, 1])
+                        with col_edit:
+                            if st.button("수정", key=f"edit_{term_id}"):
+                                st.session_state['edit_term'] = term_id
+                        with col_delete:
+                            if st.button("삭제", key=f"delete_{term_id}"):
+                                db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
+                                st.rerun()
     else:
         st.info("용어가 없습니다. 위에서 새로운 용어를 추가해주세요.")
+    
+    # 용어 수정 폼
+    if 'edit_term' in st.session_state:
+        term_id = st.session_state['edit_term']
+        term_data = db_query(
+            "glossary.db",
+            "SELECT term, definition, subject, image_path FROM glossary WHERE id=?",
+            (term_id,),
+            fetch_one=True
+        )
+        
+        if term_data:
+            term, definition, subject, image_path = term_data
+            st.subheader("용어 수정")
+            with st.form(f"edit_term_form_{term_id}"):
+                new_term = st.text_input("용어", value=term, key=f"edit_term_{term_id}")
+                new_definition = st.text_area("정의", value=definition, height=150, key=f"edit_def_{term_id}")
+                new_subject = st.selectbox(
+                    "과목", 
+                    ["공통", "전기이론", "전기기기", "전력공학", "회로이론", "전기설비"],
+                    index=["공통", "전기이론", "전기기기", "전력공학", "회로이론", "전기설비"].index(subject),
+                    key=f"edit_subj_{term_id}"
+                )
+                
+                # 기존 이미지 표시
+                if image_path and os.path.exists(image_path):
+                    st.image(image_path, caption="현재 이미지", width=200)
+                
+                # 새 이미지 업로드
+                new_image = st.file_uploader(
+                    "새 이미지 업로드 (선택사항)", 
+                    type=['jpg', 'jpeg', 'png'], 
+                    key=f"edit_img_{term_id}"
+                )
+                
+                col_save, col_cancel = st.columns([1, 1])
+                with col_save:
+                    save_btn = st.form_submit_button("저장")
+                with col_cancel:
+                    cancel_btn = st.form_submit_button("취소")
+                
+                if save_btn:
+                    # 이미지 업데이트 처리
+                    updated_image_path = image_path
+                    if new_image is not None:
+                        updated_image_path = save_uploaded_image(new_image)
+                    
+                    db_query(
+                        "glossary.db",
+                        "UPDATE glossary SET term=?, definition=?, subject=?, image_path=? WHERE id=?",
+                        (new_term, new_definition, new_subject, updated_image_path, term_id)
+                    )
+                    del st.session_state['edit_term']
+                    st.success("용어가 수정되었습니다!")
+                    st.rerun()
+                
+                if cancel_btn:
+                    del st.session_state['edit_term']
+                    st.rerun()
 
 # --- 학습 통계 화면 ---
 def learning_stats():
@@ -750,10 +1167,17 @@ def learning_stats():
             st.write("### 인기 동영상 TOP 5")
             top_videos = video_df.sort_values('watch_count', ascending=False).head(5)
             st.dataframe(top_videos[['title', 'subject', 'watch_count']], hide_index=True)
+            
+            # 최근 시청 동영상
+            st.write("### 최근 시청 동영상")
+            recent_videos = video_df.sort_values('last_watched', ascending=False).head(5)
+            st.dataframe(recent_videos[['title', 'subject', 'last_watched']], hide_index=True)
         else:
             st.info("동영상 시청 기록이 없습니다.")
     except:
         st.info("동영상 시청 기록이 없습니다.")
+    
+    st.divider()
     
     # 학습 자료 통계
     st.subheader("학습 자료 통계")
@@ -767,11 +1191,55 @@ def learning_stats():
         if not material_df.empty:
             # 과목별 학습 자료 수
             st.write("### 과목별 학습 자료 수")
-            st.bar_chart(material_df.set_index('subject'))
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.bar(material_df['subject'], material_df['count'], color='#00FF00')
+            ax.set_title('과목별 학습 자료 수', color='white')
+            ax.set_facecolor('black')
+            fig.patch.set_facecolor('black')
+            ax.tick_params(colors='#00FF00')
+            ax.spines['bottom'].set_color('#00FF00')
+            ax.spines['top'].set_color('#00FF00') 
+            ax.spines['right'].set_color('#00FF00')
+            ax.spines['left'].set_color('#00FF00')
+            st.pyplot(fig)
+            
+            # 최근 학습 자료
+            st.write("### 최근 추가된 학습 자료")
+            recent_materials = pd.read_sql("""
+                SELECT subject, title, timestamp 
+                FROM study_materials 
+                ORDER BY timestamp DESC 
+                LIMIT 5
+            """, sqlite3.connect("study_materials.db"))
+            st.dataframe(recent_materials, hide_index=True)
         else:
             st.info("학습 자료 기록이 없습니다.")
     except:
         st.info("학습 자료 기록이 없습니다.")
+    
+    st.divider()
+    
+    # 용어집 통계
+    st.subheader("용어집 통계")
+    try:
+        glossary_df = pd.read_sql("""
+            SELECT subject, COUNT(*) as count
+            FROM glossary
+            GROUP BY subject
+        """, sqlite3.connect("glossary.db"))
+        
+        if not glossary_df.empty:
+            # 과목별 용어 수
+            st.write("### 과목별 용어 수")
+            st.bar_chart(glossary_df.set_index('subject'))
+            
+            # 용어 개수 요약
+            total_terms = glossary_df['count'].sum()
+            st.metric("총 용어 수", total_terms)
+        else:
+            st.info("용어집 기록이 없습니다.")
+    except:
+        st.info("용어집 기록이 없습니다.")
 
 # --- 메인 앱 ---
 def main():
