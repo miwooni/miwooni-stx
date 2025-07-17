@@ -799,7 +799,7 @@ def learning_stats():
             subject_views = video_df.groupby('subject')['watch_count'].sum().reset_index()
             
             # 차트 크기 조정
-            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else plt.subplots(figsize=(6, 4))
+            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else plt.subplots(figsize=(6, 4)))
             ax.bar(subject_views['subject'], subject_views['watch_count'], color='#00FF00')
             ax.set_title('과목별 시청 횟수', fontsize=14)
             ax.set_ylabel('시청 횟수', fontsize=12)
