@@ -16,7 +16,7 @@ import webbrowser
 from PIL import Image
 import io
 
-# --- 페이지 설정 ---
+# --- 페이지 설정 (갤럭시 탭 최적화) ---
 st.set_page_config(
     page_title="성진아 도전!!!",
     page_icon="⚡",
@@ -24,12 +24,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS 스타일 적용 (검정 바탕에 녹색 글씨, 사이드바 폰트 2배 확대, 커서 색상 변경) ---
+# --- CSS 스타일 적용 (갤럭시 탭 최적화) ---
 st.markdown("""
 <style>
     * {
         background-color: #000000 !important;
         color: #00FF00 !important;
+        font-size: 1.1rem !important;  /* 기본 폰트 크기 확대 */
     }
     .stApp, .stSidebar {
         background-color: #000000 !important;
@@ -38,6 +39,9 @@ st.markdown("""
         background-color: #006600;
         color: #00FF00;
         border: 1px solid #00FF00;
+        font-size: 1.2rem !important;  /* 버튼 폰트 크기 확대 */
+        padding: 12px 24px !important; /* 버튼 패딩 확대 (터치 최적화) */
+        min-height: 50px !important;   /* 버튼 최소 높이 확대 */
     }
     .stButton>button:hover {
         background-color: #004400;
@@ -47,14 +51,19 @@ st.markdown("""
     .stTextInput>div>div>input, .stTextArea>div>div>textarea {
         background-color: #001100;
         color: #00FF00;
+        font-size: 1.2rem !important;  /* 입력 필드 폰트 크기 확대 */
+        min-height: 50px !important;   /* 입력 필드 높이 확대 */
     }
     .stSelectbox>div>div>select {
         background-color: #001100;
         color: #00FF00;
+        font-size: 1.2rem !important;  /* 셀렉트박스 폰트 크기 확대 */
+        min-height: 50px !important;   /* 셀렉트박스 높이 확대 */
     }
     .stRadio>div {
         background-color: #001100;
         color: #00FF00;
+        font-size: 1.2rem !important;  /* 라디오 버튼 폰트 크기 확대 */
     }
     .stSlider>div>div>div>div {
         background-color: #006600;
@@ -65,25 +74,29 @@ st.markdown("""
     .stExpander>div>div>div {
         background-color: #001100;
         color: #00FF00;
+        font-size: 1.2rem !important;  /* 확장기 폰트 크기 확대 */
     }
     .stMarkdown {
         color: #00FF00;
+        font-size: 1.2rem !important;  /* 마크다운 폰트 크기 확대 */
     }
     .stAlert {
         background-color: #001100;
         color: #00FF00;
+        font-size: 1.2rem !important;  /* 알림 폰트 크기 확대 */
     }
     .comcbt-iframe {
         width: 100%;
-        height: 800px;
+        height: 70vh;  /* 화면 높이에 비례하는 높이로 변경 */
         border: 2px solid #00FF00;
         border-radius: 10px;
         overflow: hidden;
     }
-    /* 사이드바 메뉴 글자 크기 2배 확대 */
+    /* 사이드바 메뉴 글자 크기 확대 (갤럭시 탭 최적화) */
     .stSidebar .stRadio > label > div {
-        font-size: 24px !important;
-        padding: 15px 0 !important;
+        font-size: 1.8rem !important;  /* 더 큰 폰트 크기 */
+        padding: 20px 0 !important;    /* 더 큰 패딩 */
+        margin: 10px 0 !important;     /* 마진 추가 */
     }
     /* 이미지 표시 스타일 */
     .term-image {
@@ -92,7 +105,7 @@ st.markdown("""
         border-radius: 5px;
         margin-top: 10px;
     }
-    /* 페이징 컨트롤 스타일 */
+    /* 페이징 컨트롤 스타일 (터치 최적화) */
     .pagination-control {
         display: flex;
         justify-content: center;
@@ -100,15 +113,52 @@ st.markdown("""
         margin-top: 20px;
     }
     .pagination-control button {
-        margin: 0 10px;
-        padding: 5px 15px;
+        margin: 0 15px;  /* 버튼 사이 간격 확대 */
+        padding: 12px 24px !important; /* 버튼 크기 확대 */
+        font-size: 1.3rem !important;  /* 버튼 폰트 크기 확대 */
+        min-height: 60px !important;   /* 버튼 최소 높이 확대 */
     }
     /* 입력 커서(caret) 형광색 설정 */
     input, textarea, [contenteditable] {
-        caret-color: #00FF00 !important; /* 형광 초록 */
-        color: #00FF00 !important;       /* 입력 글자도 형광 */
-        background-color: #000000 !important; /* 배경을 어두운 색으로 대비 ↑ */
-        border: 1px solid #00FF00 !important; /* 테두리도 형광색으로 */
+        caret-color: #00FF00 !important;
+        color: #00FF00 !important;
+        background-color: #000000 !important;
+        border: 1px solid #00FF00 !important;
+    }
+    /* 탭 레이아웃 최적화 */
+    .stTabs [role="tab"] {
+        font-size: 1.4rem !important;  /* 탭 폰트 크기 확대 */
+        padding: 15px 25px !important; /* 탭 패딩 확대 */
+    }
+    /* 갤럭시 탭 화면 크기에 따른 반응형 조정 */
+    @media (max-width: 1024px) {
+        /* 갤럭시 탭 가로 모드 */
+        .stButton>button {
+            padding: 10px 20px !important;
+            min-height: 45px !important;
+        }
+        .stSidebar .stRadio > label > div {
+            font-size: 1.6rem !important;
+        }
+    }
+    @media (max-width: 768px) {
+        /* 갤럭시 탭 세로 모드 */
+        .stButton>button {
+            padding: 8px 16px !important;
+            min-height: 40px !important;
+            font-size: 1.1rem !important;
+        }
+        .stSidebar .stRadio > label > div {
+            font-size: 1.4rem !important;
+            padding: 15px 0 !important;
+        }
+        .stTabs [role="tab"] {
+            font-size: 1.2rem !important;
+            padding: 10px 15px !important;
+        }
+        .comcbt-iframe {
+            height: 50vh; /* 세로 모드에서 높이 축소 */
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -116,15 +166,15 @@ st.markdown("""
 # --- 개발자 크레딧 ---
 def show_developer_credit():
     st.sidebar.divider()
-    # 사이드바에 이미지 추가 (크기 40% 확대: 150 -> 210)
+    # 사이드바에 이미지 추가 (반응형 크기 조정)
     try:
-        st.sidebar.image("화면 캡처 2025-07-15 094924.jpg", width=210)
-        st.sidebar.markdown("<center>나는 할 수 밖에 없다.!!!<br>⚡ Made by Sung Jin ⚡</center>", unsafe_allow_html=True)
+        st.sidebar.image("화면 캡처 2025-07-15 094924.jpg", use_column_width=True)
+        st.sidebar.markdown("<center style='font-size:1.4rem;'>나는 할 수 밖에 없다.!!!<br>⚡ Made by Sung Jin ⚡</center>", unsafe_allow_html=True)
     except:
         st.sidebar.markdown("""
         <div style="text-align: center; padding: 10px; background-color: #002200; border-radius: 10px; margin-top: 20px;">
-            <p style="color: #00FF00; margin-bottom: 5px;">나는 할 수 밖에 없다.!!!</p>
-            <h4 style="color: #00FF00; margin-top: 0;">⚡ Made by Sung Jin ⚡</h4>
+            <p style="color: #00FF00; margin-bottom: 5px; font-size:1.4rem;">나는 할 수 밖에 없다.!!!</p>
+            <h4 style="color: #00FF00; margin-top: 0; font-size:1.6rem;">⚡ Made by Sung Jin ⚡</h4>
         </div>
         """, unsafe_allow_html=True)
 
@@ -143,7 +193,7 @@ def init_databases():
             )
         """)
     
-    # 학습 자료 저장 테이블 (기존 메모장 대체)
+    # 학습 자료 저장 테이블
     with sqlite3.connect("study_materials.db") as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS study_materials (
@@ -156,7 +206,7 @@ def init_databases():
             )
         """)
     
-    # 용어집 저장 테이블 (이미지 경로 저장 필드 추가)
+    # 용어집 저장 테이블
     with sqlite3.connect("glossary.db") as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS glossary (
@@ -220,15 +270,15 @@ def integrate_comcbt_exam():
     
     st.markdown(f"""
     <div class="comcbt-iframe">
-        <iframe src="{comcbt_url}" width="100%" height="800px" frameborder="0"></iframe>
+        <iframe src="{comcbt_url}" width="100%" height="100%" frameborder="0"></iframe>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("---")
     st.markdown("""
     <div style="background-color: #002200; padding: 15px; border-radius: 10px; margin-top: 20px;">
-        <h4>📌 COMCBT.COM 사용 안내</h4>
-        <ul>
+        <h4 style="font-size:1.4rem;">📌 COMCBT.COM 사용 안내</h4>
+        <ul style="font-size:1.2rem;">
             <li>위 프레임은 COMCBT.COM의 전기산업기사 문제를 직접 표시합니다</li>
             <li>문제 풀이, 채점 등 모든 기능을 이 창에서 바로 사용 가능합니다</li>
             <li>문제가 표시되지 않으면 <a href="{comcbt_url}" target="_blank">여기를 클릭</a>하여 새 창에서 열어주세요</li>
@@ -240,22 +290,24 @@ def integrate_comcbt_exam():
 def home():
     st.title("불가능은 있다!! 하지만 난 불가능에 도전한다!!")
     st.markdown("""
+    <div style="font-size:1.3rem;">
     ### 🚀 간절하지 않으면 생각도 말라 !!!. 🚀
     - **🧠 CBT 모의고사**: COMCBT 통합 모의고사
     - **🎥 동영상 학습**: 필요한 강의만 집중해서 시청
     - **📚 학습 자료**: 과목별 학습 메모 관리
     - **📖 용어집**: 전기기사 필수 용어 사전
     - **📊 학습 통계**: 나의 학습 패턴 분석
-    """)
+    </div>
+    """, unsafe_allow_html=True)
     
     # 홈 화면 이미지
     try:
         st.image("화면 캡처 2025-07-15 094924.jpg", 
-                 use_container_width=True, caption="모카 멋진척 하기!!!")
+                 use_column_width=True, caption="모카 멋진척 하기!!!")
     except:
         pass
 
-# --- 사이드바 메뉴 ---
+# --- 사이드바 메뉴 (갤럭시 탭 최적화) ---
 def sidebar_menu():
     st.sidebar.title("📚 학습 메뉴")
     menu = st.sidebar.radio(
@@ -269,14 +321,14 @@ def sidebar_menu():
     
     return menu
 
-# --- 동영상 학습 화면 (페이징 처리 추가) ---
+# --- 동영상 학습 화면 (갤럭시 탭 최적화) ---
 def video_learning():
     st.title("🎥 동영상 학습")
     
     # 페이징 상태 관리
     if 'video_page' not in st.session_state:
         st.session_state.video_page = 1
-    page_size = 5  # 페이지당 동영상 수
+    page_size = 3 if st.session_state.get('is_mobile', False) else 5  # 모바일에서는 3개, PC에서는 5개
     
     # 과목 선택
     subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
@@ -288,7 +340,7 @@ def video_learning():
     
     # 동영상 추가 폼
     with st.expander("새 동영상 추가", expanded=False):
-        with st.form("video_form"):
+        with st.form("video_form", clear_on_submit=True):
             video_url = st.text_input("유튜브 URL", key="video_url")
             video_title = st.text_input("동영상 제목", key="video_title")
             submitted = st.form_submit_button("추가")
@@ -364,6 +416,7 @@ def video_learning():
         # 동영상 목록 표시 (항상 접힌 상태로)
         for i, (video_id, title, count, url) in enumerate(videos):
             with st.expander(f"{title} (시청 {count}회)", expanded=False):
+                # 동영상 플레이어 크기 조정 (갤럭시 탭 최적화)
                 st.markdown(f"""
                 <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
                     <iframe src="https://www.youtube.com/embed/{video_id}?rel=0" 
@@ -396,7 +449,7 @@ def video_learning():
                 
                 st.markdown(f"[원본 보기]({url})", unsafe_allow_html=True)
         
-        # 페이징 컨트롤
+        # 페이징 컨트롤 (터치 최적화)
         if total_pages > 1:
             st.divider()
             col_prev, col_page, col_next = st.columns([1, 2, 1])
@@ -407,7 +460,7 @@ def video_learning():
                     st.rerun()
             
             with col_page:
-                st.markdown(f"**페이지 {st.session_state.video_page}/{total_pages}**")
+                st.markdown(f"<div style='text-align:center; font-size:1.3rem;'>페이지 {st.session_state.video_page}/{total_pages}</div>", unsafe_allow_html=True)
             
             with col_next:
                 if st.button("다음 ▶", disabled=st.session_state.video_page >= total_pages):
@@ -431,8 +484,8 @@ def video_learning():
         # 제목 입력
         material_title = st.text_input("제목", key="material_title")
         
-        # 내용 입력 (20줄로 확대)
-        material_content = st.text_area("내용", height=400, key="material_content")
+        # 내용 입력 (갤럭시 탭 최적화)
+        material_content = st.text_area("내용", height=300, key="material_content")
         
         # 저장 버튼
         if st.button("학습 자료 저장", key="save_material"):
@@ -467,12 +520,12 @@ def video_learning():
         else:
             st.info("저장된 학습 자료가 없습니다.")
 
-# --- 학습 자료 화면 (왼쪽 학습자료, 오른쪽 용어집) ---
+# --- 학습 자료 화면 (갤럭시 탭 최적화) ---
 def study_materials():
     st.title("📚 학습 자료")
     
-    # 화면을 두 개의 열로 분할 (6:4 비율)
-    col_list, col_glossary = st.columns([6, 4])
+    # 화면을 두 개의 열로 분할 (갤럭시 탭 최적화)
+    col_list, col_glossary = st.columns([1, 1], gap="large")
     
     with col_list:
         # 학습 자료 목록
@@ -484,7 +537,7 @@ def study_materials():
         # 페이징 상태 관리
         if 'material_page' not in st.session_state:
             st.session_state.material_page = 1
-        page_size = 5  # 페이지당 자료 수
+        page_size = 3 if st.session_state.get('is_mobile', False) else 5  # 모바일에서는 3개, PC에서는 5개
         
         # 과목 선택
         subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
@@ -521,7 +574,7 @@ def study_materials():
         else:
             st.info("해당 과목의 학습 자료가 없습니다.")
         
-        # 페이징 컨트롤
+        # 페이징 컨트롤 (터치 최적화)
         if total_pages > 1:
             st.divider()
             col_prev, col_page, col_next = st.columns([1, 2, 1])
@@ -532,7 +585,7 @@ def study_materials():
                     st.rerun()
             
             with col_page:
-                st.markdown(f"**페이지 {st.session_state.material_page}/{total_pages}**")
+                st.markdown(f"<div style='text-align:center; font-size:1.3rem;'>페이지 {st.session_state.material_page}/{total_pages}</div>", unsafe_allow_html=True)
             
             with col_next:
                 if st.button("다음 ▶", key="next_mat", disabled=st.session_state.material_page >= total_pages):
@@ -545,7 +598,7 @@ def study_materials():
         
         # 용어 추가 폼 (이미지 업로드 추가)
         with st.expander("새 용어 추가", expanded=False):
-            with st.form("term_form"):
+            with st.form("term_form", clear_on_submit=True):
                 term = st.text_input("용어", key="term")
                 definition = st.text_area("정의", height=150, key="definition")
                 subject = st.selectbox(
@@ -624,7 +677,7 @@ def study_materials():
                             
                             # 이미지 표시
                             if image_path and os.path.exists(image_path):
-                                st.image(image_path, caption=f"{term} 이미지", use_container_width=True)
+                                st.image(image_path, caption=f"{term} 이미지", use_column_width=True)
                             
                             if st.button("삭제", key=f"delete_{term_id}"):
                                 db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
@@ -632,13 +685,13 @@ def study_materials():
         else:
             st.info("용어가 없습니다. 위에서 새로운 용어를 추가해주세요.")
 
-# --- 용어집 화면 (이미지 업로드 기능 추가) ---
+# --- 용어집 화면 (갤럭시 탭 최적화) ---
 def glossary():
     st.title("📖 용어집")
     
     # 용어 추가 폼 (이미지 업로드 추가)
     with st.expander("새 용어 추가", expanded=False):
-        with st.form("term_form"):
+        with st.form("term_form", clear_on_submit=True):
             term = st.text_input("용어", key="term")
             definition = st.text_area("정의", height=150, key="definition")
             subject = st.selectbox(
@@ -719,7 +772,7 @@ def glossary():
                         
                         # 이미지 표시
                         if image_path and os.path.exists(image_path):
-                            st.image(image_path, caption=f"{term} 이미지", use_container_width=True)
+                            st.image(image_path, caption=f"{term} 이미지", use_column_width=True)
                         
                         if st.button("삭제", key=f"delete_{term_id}"):
                             db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
@@ -727,7 +780,7 @@ def glossary():
     else:
         st.info("용어가 없습니다. 위에서 새로운 용어를 추가해주세요.")
 
-# --- 학습 통계 화면 ---
+# --- 학습 통계 화면 (갤럭시 탭 최적화) ---
 def learning_stats():
     st.title("📊 학습 통계")
     
@@ -744,7 +797,14 @@ def learning_stats():
             # 과목별 시청 횟수
             st.write("### 과목별 시청 횟수")
             subject_views = video_df.groupby('subject')['watch_count'].sum().reset_index()
-            st.bar_chart(subject_views.set_index('subject'))
+            
+            # 차트 크기 조정
+            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else plt.subplots(figsize=(6, 4))
+            ax.bar(subject_views['subject'], subject_views['watch_count'], color='#00FF00')
+            ax.set_title('과목별 시청 횟수', fontsize=14)
+            ax.set_ylabel('시청 횟수', fontsize=12)
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
             
             # 인기 동영상
             st.write("### 인기 동영상 TOP 5")
@@ -767,14 +827,35 @@ def learning_stats():
         if not material_df.empty:
             # 과목별 학습 자료 수
             st.write("### 과목별 학습 자료 수")
-            st.bar_chart(material_df.set_index('subject'))
+            
+            # 차트 크기 조정
+            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else plt.subplots(figsize=(6, 4))
+            ax.bar(material_df['subject'], material_df['count'], color='#00FF00')
+            ax.set_title('과목별 학습 자료 수', fontsize=14)
+            ax.set_ylabel('자료 수', fontsize=12)
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
         else:
             st.info("학습 자료 기록이 없습니다.")
     except:
         st.info("학습 자료 기록이 없습니다.")
 
-# --- 메인 앱 ---
+# --- 메인 앱 (갤럭시 탭 감지) ---
 def main():
+    # 화면 크기 감지 (갤럭시 탭 여부)
+    if "is_mobile" not in st.session_state:
+        try:
+            # Streamlit의 내장 기능으로 모바일 감지
+            from streamlit.runtime.scriptrunner.script_run_context import get_script_run_ctx
+            ctx = get_script_run_ctx()
+            if ctx and hasattr(ctx, 'request') and hasattr(ctx.request, 'headers'):
+                user_agent = ctx.request.headers.get("User-Agent", "").lower()
+                st.session_state.is_mobile = any(m in user_agent for m in ["mobile", "android", "iphone"])
+            else:
+                st.session_state.is_mobile = False
+        except:
+            st.session_state.is_mobile = False
+    
     # 초기화
     if "init" not in st.session_state:
         init_databases()
@@ -783,9 +864,9 @@ def main():
     # 메뉴 라우팅
     menu_functions = {
         "🏠 홈": home,
-        "🧠 CBT 모의고사": integrate_comcbt_exam,  # COMCBT 통합으로 변경
+        "🧠 CBT 모의고사": integrate_comcbt_exam,
         "🎥 동영상 학습": video_learning,
-        "📚 학습 자료": study_materials,  # 수정된 학습 자료 화면
+        "📚 학습 자료": study_materials,
         "📖 용어집": glossary,
         "📊 학습 통계": learning_stats
     }
@@ -797,8 +878,8 @@ def main():
     st.divider()
     st.markdown("""
     <div style="text-align: center; padding: 20px; background-color: #002200; border-radius: 10px; margin-top: 30px;">
-        <h3 style="color: #00FF00;">⚡ Made by Sung Jin ⚡</h3>
-        <p style="color: #00FF00;">성진아 너두 ? </p>
+        <h3 style="color: #00FF00; font-size:1.6rem;">⚡ Made by Sung Jin ⚡</h3>
+        <p style="color: #00FF00; font-size:1.3rem;">성진아 너두 ? </p>
     </div>
     """, unsafe_allow_html=True)
 
