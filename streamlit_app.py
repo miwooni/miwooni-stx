@@ -2,19 +2,13 @@ import streamlit as st
 import sqlite3
 from datetime import datetime, timedelta
 import os
-import glob
-import base64
-import fitz  # PyMuPDF
-import unicodedata
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pytube import YouTube
-import requests
-from bs4 import BeautifulSoup
-import webbrowser
 from PIL import Image
 import io
+import re
 
 # --- 페이지 설정 (갤럭시 탭 최적화) ---
 st.set_page_config(
@@ -30,7 +24,7 @@ st.markdown("""
     * {
         background-color: #000000 !important;
         color: #00FF00 !important;
-        font-size: 1.1rem !important;  /* 기본 폰트 크기 확대 */
+        font-size: 1.1rem !important;
     }
     .stApp, .stSidebar {
         background-color: #000000 !important;
@@ -39,9 +33,9 @@ st.markdown("""
         background-color: #006600;
         color: #00FF00;
         border: 1px solid #00FF00;
-        font-size: 1.2rem !important;  /* 버튼 폰트 크기 확대 */
-        padding: 12px 24px !important; /* 버튼 패딩 확대 (터치 최적화) */
-        min-height: 50px !important;   /* 버튼 최소 높이 확대 */
+        font-size: 1.2rem !important;
+        padding: 12px 24px !important;
+        min-height: 50px !important;
     }
     .stButton>button:hover {
         background-color: #004400;
@@ -51,19 +45,19 @@ st.markdown("""
     .stTextInput>div>div>input, .stTextArea>div>div>textarea {
         background-color: #001100;
         color: #00FF00;
-        font-size: 1.2rem !important;  /* 입력 필드 폰트 크기 확대 */
-        min-height: 50px !important;   /* 입력 필드 높이 확대 */
+        font-size: 1.2rem !important;
+        min-height: 50px !important;
     }
     .stSelectbox>div>div>select {
         background-color: #001100;
         color: #00FF00;
-        font-size: 1.2rem !important;  /* 셀렉트박스 폰트 크기 확대 */
-        min-height: 50px !important;   /* 셀렉트박스 높이 확대 */
+        font-size: 1.2rem !important;
+        min-height: 50px !important;
     }
     .stRadio>div {
         background-color: #001100;
         color: #00FF00;
-        font-size: 1.2rem !important;  /* 라디오 버튼 폰트 크기 확대 */
+        font-size: 1.2rem !important;
     }
     .stSlider>div>div>div>div {
         background-color: #006600;
@@ -74,38 +68,35 @@ st.markdown("""
     .stExpander>div>div>div {
         background-color: #001100;
         color: #00FF00;
-        font-size: 1.2rem !important;  /* 확장기 폰트 크기 확대 */
+        font-size: 1.2rem !important;
     }
     .stMarkdown {
         color: #00FF00;
-        font-size: 1.2rem !important;  /* 마크다운 폰트 크기 확대 */
+        font-size: 1.2rem !important;
     }
     .stAlert {
         background-color: #001100;
         color: #00FF00;
-        font-size: 1.2rem !important;  /* 알림 폰트 크기 확대 */
+        font-size: 1.2rem !important;
     }
     .comcbt-iframe {
         width: 100%;
-        height: 70vh;  /* 화면 높이에 비례하는 높이로 변경 */
+        height: 70vh;
         border: 2px solid #00FF00;
         border-radius: 10px;
         overflow: hidden;
     }
-    /* 사이드바 메뉴 글자 크기 확대 (갤럭시 탭 최적화) */
     .stSidebar .stRadio > label > div {
-        font-size: 1.8rem !important;  /* 더 큰 폰트 크기 */
-        padding: 20px 0 !important;    /* 더 큰 패딩 */
-        margin: 10px 0 !important;     /* 마진 추가 */
+        font-size: 1.8rem !important;
+        padding: 20px 0 !important;
+        margin: 10px 0 !important;
     }
-    /* 이미지 표시 스타일 */
     .term-image {
         max-width: 100%;
         border: 1px solid #00FF00;
         border-radius: 5px;
         margin-top: 10px;
     }
-    /* 페이징 컨트롤 스타일 (터치 최적화) */
     .pagination-control {
         display: flex;
         justify-content: center;
@@ -113,26 +104,22 @@ st.markdown("""
         margin-top: 20px;
     }
     .pagination-control button {
-        margin: 0 15px;  /* 버튼 사이 간격 확대 */
-        padding: 12px 24px !important; /* 버튼 크기 확대 */
-        font-size: 1.3rem !important;  /* 버튼 폰트 크기 확대 */
-        min-height: 60px !important;   /* 버튼 최소 높이 확대 */
+        margin: 0 15px;
+        padding: 12px 24px !important;
+        font-size: 1.3rem !important;
+        min-height: 60px !important;
     }
-    /* 입력 커서(caret) 형광색 설정 */
     input, textarea, [contenteditable] {
         caret-color: #00FF00 !important;
         color: #00FF00 !important;
         background-color: #000000 !important;
         border: 1px solid #00FF00 !important;
     }
-    /* 탭 레이아웃 최적화 */
     .stTabs [role="tab"] {
-        font-size: 1.4rem !important;  /* 탭 폰트 크기 확대 */
-        padding: 15px 25px !important; /* 탭 패딩 확대 */
+        font-size: 1.4rem !important;
+        padding: 15px 25px !important;
     }
-    /* 갤럭시 탭 화면 크기에 따른 반응형 조정 */
     @media (max-width: 1024px) {
-        /* 갤럭시 탭 가로 모드 */
         .stButton>button {
             padding: 10px 20px !important;
             min-height: 45px !important;
@@ -142,7 +129,6 @@ st.markdown("""
         }
     }
     @media (max-width: 768px) {
-        /* 갤럭시 탭 세로 모드 */
         .stButton>button {
             padding: 8px 16px !important;
             min-height: 40px !important;
@@ -157,7 +143,10 @@ st.markdown("""
             padding: 10px 15px !important;
         }
         .comcbt-iframe {
-            height: 50vh; /* 세로 모드에서 높이 축소 */
+            height: 50vh;
+        }
+        .col-visibility {
+            display: none;
         }
     }
 </style>
@@ -166,9 +155,10 @@ st.markdown("""
 # --- 개발자 크레딧 ---
 def show_developer_credit():
     st.sidebar.divider()
-    # 사이드바에 이미지 추가 (반응형 크기 조정)
     try:
-        st.sidebar.image("화면 캡처 2025-07-15 094924.jpg", use_column_width=True)
+        st.sidebar.image("https://via.placeholder.com/300x100/006600/00FF00?text=SungJin+Dev", 
+                         use_column_width=True, 
+                         caption="성진아 너두 할 수 있다!")
         st.sidebar.markdown("<center style='font-size:1.4rem;'>나는 할 수 밖에 없다.!!!<br>⚡ Made by Sung Jin ⚡</center>", unsafe_allow_html=True)
     except:
         st.sidebar.markdown("""
@@ -258,6 +248,23 @@ def save_uploaded_image(uploaded_file):
     
     return filepath
 
+# --- 유튜브 비디오 ID 추출 ---
+def extract_video_id(url):
+    # YouTube URL 패턴
+    patterns = [
+        r"youtube\.com/watch\?v=([a-zA-Z0-9_-]+)",
+        r"youtu\.be/([a-zA-Z0-9_-]+)",
+        r"youtube\.com/embed/([a-zA-Z0-9_-]+)",
+        r"youtube\.com/v/([a-zA-Z0-9_-]+)"
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    
+    return None
+
 # --- COMCBT.COM 문제 통합 ---
 def integrate_comcbt_exam():
     st.title("🧠 CBT 모의고사")
@@ -302,8 +309,9 @@ def home():
     
     # 홈 화면 이미지
     try:
-        st.image("화면 캡처 2025-07-15 094924.jpg", 
-                 use_column_width=True, caption="모카 멋진척 하기!!!")
+        st.image("https://via.placeholder.com/800x400/006600/00FF00?text=성진아+도전", 
+                 use_column_width=True, 
+                 caption="모카 멋진척 하기!!!")
     except:
         pass
 
@@ -328,7 +336,7 @@ def video_learning():
     # 페이징 상태 관리
     if 'video_page' not in st.session_state:
         st.session_state.video_page = 1
-    page_size = 3 if st.session_state.get('is_mobile', False) else 5  # 모바일에서는 3개, PC에서는 5개
+    page_size = 3 if st.session_state.get('is_mobile', False) else 5
     
     # 과목 선택
     subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
@@ -346,16 +354,7 @@ def video_learning():
             submitted = st.form_submit_button("추가")
             
             if submitted and video_url and video_title:
-                video_id = None
-                if "youtube.com" in video_url or "youtu.be" in video_url:
-                    try:
-                        yt = YouTube(video_url)
-                        video_id = yt.video_id
-                    except:
-                        if "v=" in video_url:
-                            video_id = video_url.split("v=")[1].split("&")[0]
-                        elif "youtu.be/" in video_url:
-                            video_id = video_url.split("youtu.be/")[1].split("?")[0]
+                video_id = extract_video_id(video_url)
                 
                 if video_id:
                     with sqlite3.connect("videos.db") as conn:
@@ -374,8 +373,8 @@ def video_learning():
                 else:
                     st.error("유효한 YouTube URL을 입력해주세요.")
     
-    # 학습 자료를 위한 레이아웃 (용어집 제거)
-    col_video, col_memo = st.columns([3, 2])
+    # 학습 자료를 위한 레이아웃
+    col_video, col_memo = st.columns([3, 2], gap="large")
     
     with col_video:
         # 동영상 목록
@@ -413,7 +412,7 @@ def video_learning():
             st.info("등록된 동영상이 없습니다. 위에서 동영상을 추가하세요.")
             return
         
-        # 동영상 목록 표시 (항상 접힌 상태로)
+        # 동영상 목록 표시
         for i, (video_id, title, count, url) in enumerate(videos):
             with st.expander(f"{title} (시청 {count}회)", expanded=False):
                 # 동영상 플레이어 크기 조정 (갤럭시 탭 최적화)
@@ -427,7 +426,7 @@ def video_learning():
                 
                 col1, col2 = st.columns([1, 1])
                 with col1:
-                    if st.button("시청 기록 추가", key=f"watch_{video_id}"):
+                    if st.button("시청 기록 추가", key=f"watch_{video_id}_{i}"):
                         with sqlite3.connect("videos.db") as conn:
                             cursor = conn.cursor()
                             cursor.execute("""
@@ -439,7 +438,7 @@ def video_learning():
                             conn.commit()
                         st.rerun()
                 with col2:
-                    if st.button("삭제", key=f"delete_{video_id}"):
+                    if st.button("삭제", key=f"delete_{video_id}_{i}"):
                         db_query(
                             "videos.db", 
                             "DELETE FROM videos WHERE video_id=?", 
@@ -455,7 +454,7 @@ def video_learning():
             col_prev, col_page, col_next = st.columns([1, 2, 1])
             
             with col_prev:
-                if st.button("◀ 이전", disabled=st.session_state.video_page <= 1):
+                if st.button("◀ 이전", key="prev_video", disabled=st.session_state.video_page <= 1):
                     st.session_state.video_page -= 1
                     st.rerun()
             
@@ -463,7 +462,7 @@ def video_learning():
                 st.markdown(f"<div style='text-align:center; font-size:1.3rem;'>페이지 {st.session_state.video_page}/{total_pages}</div>", unsafe_allow_html=True)
             
             with col_next:
-                if st.button("다음 ▶", disabled=st.session_state.video_page >= total_pages):
+                if st.button("다음 ▶", key="next_video", disabled=st.session_state.video_page >= total_pages):
                     st.session_state.video_page += 1
                     st.rerun()
     
@@ -537,7 +536,7 @@ def study_materials():
         # 페이징 상태 관리
         if 'material_page' not in st.session_state:
             st.session_state.material_page = 1
-        page_size = 3 if st.session_state.get('is_mobile', False) else 5  # 모바일에서는 3개, PC에서는 5개
+        page_size = 3 if st.session_state.get('is_mobile', False) else 5
         
         # 과목 선택
         subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
@@ -799,7 +798,7 @@ def learning_stats():
             subject_views = video_df.groupby('subject')['watch_count'].sum().reset_index()
             
             # 차트 크기 조정
-            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else plt.subplots(figsize=(6, 4)))
+            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else (6, 4))
             ax.bar(subject_views['subject'], subject_views['watch_count'], color='#00FF00')
             ax.set_title('과목별 시청 횟수', fontsize=14)
             ax.set_ylabel('시청 횟수', fontsize=12)
@@ -829,7 +828,7 @@ def learning_stats():
             st.write("### 과목별 학습 자료 수")
             
             # 차트 크기 조정
-            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else plt.subplots(figsize=(6, 4))
+            fig, ax = plt.subplots(figsize=(10, 6) if not st.session_state.get('is_mobile', False) else (6, 4))
             ax.bar(material_df['subject'], material_df['count'], color='#00FF00')
             ax.set_title('과목별 학습 자료 수', fontsize=14)
             ax.set_ylabel('자료 수', fontsize=12)
@@ -845,14 +844,11 @@ def main():
     # 화면 크기 감지 (갤럭시 탭 여부)
     if "is_mobile" not in st.session_state:
         try:
-            # Streamlit의 내장 기능으로 모바일 감지
-            from streamlit.runtime.scriptrunner.script_run_context import get_script_run_ctx
-            ctx = get_script_run_ctx()
-            if ctx and hasattr(ctx, 'request') and hasattr(ctx.request, 'headers'):
-                user_agent = ctx.request.headers.get("User-Agent", "").lower()
-                st.session_state.is_mobile = any(m in user_agent for m in ["mobile", "android", "iphone"])
-            else:
-                st.session_state.is_mobile = False
+            # User-Agent로 모바일 감지
+            user_agent = st.experimental_get_query_params().get("User-Agent", [""])[0].lower()
+            if not user_agent:
+                user_agent = ""
+            st.session_state.is_mobile = any(m in user_agent for m in ["mobile", "android", "iphone"])
         except:
             st.session_state.is_mobile = False
     
