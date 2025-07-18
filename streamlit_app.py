@@ -232,12 +232,17 @@ st.markdown("""
 # --- 개발자 크레딧 ---
 def show_developer_credit():
     st.sidebar.divider()
-    st.sidebar.markdown("""
-    <div style="text-align: center; padding: 10px; background-color: #002200; border-radius: 10px; margin-top: 20px;">
-        <p style="color: #00FF00; margin-bottom: 5px;">나는 할 수 밖에 없다.!!!</p>
-        <h4 style="color: #00FF00; margin-top: 0;">⚡ Made by Sung Jin ⚡</h4>
-    </div>
-    """, unsafe_allow_html=True)
+    # 사이드바에 이미지 추가 (크기 40% 확대: 150 -> 210)
+    try:
+        st.sidebar.image("moca.jpg", width=210)
+        st.sidebar.markdown("<center>나는 할 수 밖에 없다.!!!<br>⚡ Made by Sung Jin ⚡</center>", unsafe_allow_html=True)
+    except:
+        st.sidebar.markdown("""
+        <div style="text-align: center; padding: 10px; background-color: #002200; border-radius: 10px; margin-top: 20px;">
+            <p style="color: #00FF00; margin-bottom: 5px;">나는 할 수 밖에 없다.!!!</p>
+            <h4 style="color: #00FF00; margin-top: 0;">⚡ Made by Sung Jin ⚡</h4>
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- 데이터베이스 초기화 ---
 def init_databases():
