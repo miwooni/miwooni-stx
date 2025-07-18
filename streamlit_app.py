@@ -170,6 +170,62 @@ st.markdown("""
     .highlight-row {
         background-color: #003300 !important;
     }
+    /* 3분할 레이아웃 설정 */
+    .main-layout {
+        display: flex;
+        width: 100%;
+        gap: 20px;
+    }
+    .left-sidebar {
+        width: 20%;
+        min-width: 250px;
+    }
+    .main-content {
+        flex: 1;
+        width: 60%;
+    }
+    .right-sidebar {
+        width: 20%;
+        min-width: 300px;
+        background-color: #001100;
+        padding: 15px;
+        border-left: 2px solid #00FF00;
+        border-radius: 10px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+    }
+    .right-sidebar-tabs .stTabs [role="tablist"] {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .right-sidebar-tabs .stTabs [role="tab"] {
+        flex: 1;
+        text-align: center;
+        padding: 10px 0;
+        background-color: #002200;
+        border: 1px solid #00FF00;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .right-sidebar-tabs .stTabs [role="tab"][aria-selected="true"] {
+        background-color: #004400;
+        font-weight: bold;
+    }
+    /* 반응형 디자인 */
+    @media (max-width: 1200px) {
+        .main-layout {
+            flex-direction: column;
+        }
+        .left-sidebar, .main-content, .right-sidebar {
+            width: 100%;
+        }
+        .right-sidebar {
+            margin-top: 30px;
+            border-left: none;
+            border-top: 2px solid #00FF00;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -581,36 +637,27 @@ def sidebar_menu():
     
     return menu
 
-# --- 동영상 학습 화면 (검색 기능 추가) ---
-def video_learning():
-    st.title("🎥 동영상 학습")
+# --- 오른쪽 사이드바 (학습 자료 & 용어집) ---
+def right_sidebar():
+    st.markdown('<div class="right-sidebar">', unsafe_allow_html=True)
+    st.markdown('<div class="right-sidebar-tabs">', unsafe_allow_html=True)
     
-    # 화면을 두 개의 열로 분할 (6:4 비율)
-    col_video, col_memo = st.columns([6, 4])
+    # 탭 생성
+    tab1, tab2 = st.tabs(["📝 학습 자료", "📖 용어집"])
     
-    # 학습 자료 입력 부분 (드롭다운으로 변경)
-    with col_memo:
-        # 학습 자료 입력 (드롭다운)
-        with st.expander("📝 학습 자료 입력", expanded=True):
-            # 사용자 ID 고정값 사용
-            user_id = "miwooni"
-            
-            # 과목 선택
-            subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
-            material_subject = st.selectbox(
-                "과목 선택", 
-                subjects,
-                key="material_subject"
-            )
-            
-            # 제목 입력
+    with tab1:
+        # 학습 자료 입력
+        st.subheader("📝 학습 자료 입력")
+        user_id = "miwooni"
+        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
+        
+        with st.form("material_form"):
+            material_subject = st.selectbox("과목 선택", subjects, key="material_subject")
             material_title = st.text_input("제목", key="material_title")
-            
-            # 내용 입력 (10줄로 축소)
             material_content = st.text_area("내용", height=200, key="material_content")
+            submitted = st.form_submit_button("저장")
             
-            # 저장 버튼
-            if st.button("학습 자료 저장", key="save_material"):
+            if submitted:
                 if material_title and material_content:
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     db_query(
@@ -622,23 +669,15 @@ def video_learning():
                 else:
                     st.warning("제목과 내용을 입력해주세요")
         
-        # 저장된 학습 자료 검색 기능 추가
-        st.subheader("📚 저장된 학습 자료 검색")
-        
-        # 과목 선택 (입력 폼과 동일한 과목 사용)
-        search_subject = st.selectbox(
-            "검색 과목", 
-            subjects,
-            key="search_subject"
-        )
-        
-        # 키워드 검색
+        # 저장된 학습 자료 검색
+        st.subheader("🔍 학습 자료 검색")
+        search_subject = st.selectbox("검색 과목", subjects, key="search_subject")
         search_keyword = st.text_input("검색어", key="material_search", placeholder="제목 또는 내용 검색")
         
         # 검색 실행
         materials = db_query(
             "study_materials.db",
-            "SELECT id, subject, title, content, timestamp FROM study_materials WHERE user_id=? AND subject=? AND (title LIKE ? OR content LIKE ?) ORDER BY timestamp DESC LIMIT 10",
+            "SELECT id, subject, title, content, timestamp FROM study_materials WHERE user_id=? AND subject=? AND (title LIKE ? OR content LIKE ?) ORDER BY timestamp DESC LIMIT 5",
             (user_id, search_subject, f'%{search_keyword}%', f'%{search_keyword}%'),
             fetch=True
         )
@@ -650,349 +689,13 @@ def video_learning():
                     st.write(content)
                     if st.button("삭제", key=f"delete_mat_{mat_id}"):
                         db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
-                        st.rerun()
+                        st.experimental_rerun()
         else:
             st.info("검색 결과가 없습니다.")
     
-    # 스크롤 가능 영역 (동영상 목록)
-    with col_video:
-        st.markdown('<div class="scrollable-section">', unsafe_allow_html=True)
-        
-        # 페이징 상태 관리
-        if 'video_page' not in st.session_state:
-            st.session_state.video_page = 1
-        page_size = 5  # 페이지당 동영상 수
-        
-        # 과목 선택
-        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
-        selected_subject = st.selectbox("과목 선택", subjects, key="video_subject")
-        
-        # 정렬 기준 선택 (검색 기준을 기본값으로 설정)
-        sort_options = ["검색 기준", "제목순", "인기순", "최신순"]
-        sort_by = st.selectbox("정렬 기준", sort_options, key="video_sort")
-        
-        # 검색 기준이 선택된 경우 검색어 입력 필드 표시
-        search_keyword = ""
-        if sort_by == "검색 기준":
-            search_keyword = st.text_input("검색어 입력", key="video_search", placeholder="동영상 제목을 입력하세요")
-        
-        # 동영상 추가 폼
-        with st.expander("새 동영상 추가", expanded=False):
-            with st.form("video_form"):
-                video_url = st.text_input("유튜브 URL", key="video_url")
-                video_title = st.text_input("동영상 제목", key="video_title")
-                submitted = st.form_submit_button("추가")
-                
-                if submitted and video_url and video_title:
-                    video_id = None
-                    if "youtube.com" in video_url or "youtu.be" in video_url:
-                        try:
-                            yt = YouTube(video_url)
-                            video_id = yt.video_id
-                        except:
-                            if "v=" in video_url:
-                                video_id = video_url.split("v=")[1].split("&")[0]
-                            elif "youtu.be/" in video_url:
-                                video_id = video_url.split("youtu.be/")[1].split("?")[0]
-                    
-                    if video_id:
-                        with sqlite3.connect("videos.db") as conn:
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                INSERT INTO videos (video_id, subject, title, watch_count, last_watched, url)
-                                VALUES (?, ?, ?, 1, ?, ?)
-                                ON CONFLICT(video_id) DO UPDATE SET
-                                    title = excluded.title,
-                                    subject = excluded.subject
-                            """, (video_id, selected_subject, video_title, 
-                                  datetime.now().strftime("%Y-%m-%d %H:%M:%S"), video_url))
-                            conn.commit()
-                        st.success("동영상이 추가되었습니다!")
-                        st.rerun()
-                    else:
-                        st.error("유효한 YouTube URL을 입력해주세요.")
-        
-        # 동영상 목록
-        st.subheader(f"📺 {selected_subject} 동영상 목록")
-        
-        # 정렬 기준에 따른 쿼리
-        if sort_by == "최신순":
-            order_clause = "ORDER BY last_watched DESC"
-        elif sort_by == "인기순":
-            order_clause = "ORDER BY watch_count DESC"
-        elif sort_by == "제목순":
-            order_clause = "ORDER BY title ASC"
-        else:  # 검색 기준
-            order_clause = "ORDER BY title ASC"
-        
-        # 검색 조건 처리
-        where_clause = "subject=?"
-        params = (selected_subject,)
-        
-        if sort_by == "검색 기준" and search_keyword:
-            where_clause = "subject=? AND title LIKE ?"
-            params = (selected_subject, f'%{search_keyword}%')
-        
-        # 전체 동영상 수 조회
-        total_videos = db_query(
-            "videos.db",
-            f"SELECT COUNT(*) FROM videos WHERE {where_clause}",
-            params,
-            fetch_one=True
-        )[0]
-        
-        # 페이징 계산
-        total_pages = max(1, (total_videos + page_size - 1) // page_size)
-        offset = (st.session_state.video_page - 1) * page_size
-        
-        # 현재 페이지 동영상 조회
-        videos = db_query(
-            "videos.db",
-            f"SELECT video_id, title, watch_count, url FROM videos WHERE {where_clause} {order_clause} LIMIT ? OFFSET ?",
-            params + (page_size, offset),
-            fetch=True
-        )
-        
-        if not videos:
-            st.info("등록된 동영상이 없습니다. 위에서 동영상을 추가하세요.")
-            st.markdown('</div>', unsafe_allow_html=True)
-            return
-        
-        # 검색 결과 강조 표시
-        if sort_by == "검색 기준" and search_keyword:
-            st.markdown(f"<div class='search-highlight'>검색 결과: '{search_keyword}' (총 {len(videos)}개)</div>", unsafe_allow_html=True)
-        
-        # 동영상 목록 표시 (항상 접힌 상태로)
-        for i, (video_id, title, count, url) in enumerate(videos):
-            # 검색어 강조 표시
-            display_title = title
-            if sort_by == "검색 기준" and search_keyword:
-                display_title = title.replace(search_keyword, f"<mark style='background-color:#004400;'>{search_keyword}</mark>")
-            
-            with st.expander(f"{display_title} (시청 {count}회)", expanded=False):
-                st.markdown(f"""
-                <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
-                    <iframe src="https://www.youtube.com/embed/{video_id}?rel=0" 
-                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" 
-                            allowfullscreen></iframe>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    if st.button("시청 기록 추가", key=f"watch_{video_id}"):
-                        with sqlite3.connect("videos.db") as conn:
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE videos 
-                                SET watch_count = watch_count + 1, 
-                                    last_watched = ?
-                                WHERE video_id = ?
-                            """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), video_id))
-                            conn.commit()
-                        st.rerun()
-                with col2:
-                    if st.button("삭제", key=f"delete_{video_id}"):
-                        db_query(
-                            "videos.db", 
-                            "DELETE FROM videos WHERE video_id=?", 
-                            (video_id,)
-                        )
-                        st.rerun()
-                
-                st.markdown(f"[원본 보기]({url})", unsafe_allow_html=True)
-        
-        # 페이징 컨트롤
-        if total_pages > 1:
-            st.divider()
-            col_prev, col_page, col_next = st.columns([1, 2, 1])
-            
-            with col_prev:
-                if st.button("◀ 이전", disabled=st.session_state.video_page <= 1):
-                    st.session_state.video_page -= 1
-                    st.rerun()
-            
-            with col_page:
-                st.markdown(f"**페이지 {st.session_state.video_page}/{total_pages}**")
-            
-            with col_next:
-                if st.button("다음 ▶", disabled=st.session_state.video_page >= total_pages):
-                    st.session_state.video_page += 1
-                    st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# --- 학습 자료 화면 (왼쪽 학습자료, 오른쪽 용어집) ---
-def study_materials():
-    st.title("📚 학습 자료")
-    
-    # 화면을 두 개의 열로 분할 (6:4 비율)
-    col_list, col_glossary = st.columns([6, 4])
-    
-    with col_list:
-        # 학습 자료 목록
-        st.subheader("📋 학습 자료 목록")
-        
-        # 사용자 ID 고정값 사용
-        user_id = "miwooni"
-        
-        # 페이징 상태 관리
-        if 'material_page' not in st.session_state:
-            st.session_state.material_page = 1
-        page_size = 5  # 페이지당 자료 수
-        
-        # 과목 선택
-        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
-        selected_subject = st.selectbox("과목 선택", subjects, key="list_subject")
-        
-        # 전체 학습 자료 수 조회
-        total_materials = db_query(
-            "study_materials.db",
-            "SELECT COUNT(*) FROM study_materials WHERE user_id=? AND subject=?",
-            (user_id, selected_subject),
-            fetch_one=True
-        )[0]
-        
-        # 페이징 계산
-        total_pages = max(1, (total_materials + page_size - 1) // page_size)
-        offset = (st.session_state.material_page - 1) * page_size
-        
-        # 현재 페이지 학습 자료 조회
-        materials = db_query(
-            "study_materials.db",
-            "SELECT id, title, content, timestamp FROM study_materials WHERE user_id=? AND subject=? ORDER BY timestamp DESC LIMIT ? OFFSET ?",
-            (user_id, selected_subject, page_size, offset),
-            fetch=True
-        )
-        
-        if materials:
-            for material in materials:
-                mat_id, title, content, timestamp = material
-                with st.expander(f"{title} ({timestamp[:10]})", expanded=False):
-                    st.write(content)
-                    if st.button("삭제", key=f"delete_list_{mat_id}"):
-                        db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
-                        st.rerun()
-        else:
-            st.info("해당 과목의 학습 자료가 없습니다.")
-        
-        # 페이징 컨트롤
-        if total_pages > 1:
-            st.divider()
-            col_prev, col_page, col_next = st.columns([1, 2, 1])
-            
-            with col_prev:
-                if st.button("◀ 이전", key="prev_mat", disabled=st.session_state.material_page <= 1):
-                    st.session_state.material_page -= 1
-                    st.rerun()
-            
-            with col_page:
-                st.markdown(f"**페이지 {st.session_state.material_page}/{total_pages}**")
-            
-            with col_next:
-                if st.button("다음 ▶", key="next_mat", disabled=st.session_state.material_page >= total_pages):
-                    st.session_state.material_page += 1
-                    st.rerun()
-    
-    with col_glossary:
-        # 용어집
-        st.subheader("📖 용어집")
-        
-        # 용어 추가 폼 (이미지 업로드 추가)
-        with st.expander("새 용어 추가", expanded=False):
-            with st.form("term_form"):
-                term = st.text_input("용어", key="term")
-                definition = st.text_area("정의", height=150, key="definition")
-                subject = st.selectbox(
-                    "과목", 
-                    ["공통", "전기이론", "전기기기", "전력공학", "회로이론", "전기설비"],
-                    key="term_subject"
-                )
-                
-                # 이미지 업로드 추가
-                uploaded_image = st.file_uploader(
-                    "이미지 업로드 (선택사항)", 
-                    type=['jpg', 'jpeg', 'png'], 
-                    key="term_image"
-                )
-                
-                submitted = st.form_submit_button("추가")
-                
-                if submitted:
-                    if term and definition:
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        image_path = None
-                        
-                        # 이미지 업로드 처리
-                        if uploaded_image is not None:
-                            image_path = save_uploaded_image(uploaded_image)
-                        
-                        try:
-                            db_query(
-                                "glossary.db",
-                                "INSERT INTO glossary (term, definition, subject, timestamp, image_path) VALUES (?, ?, ?, ?, ?)",
-                                (term, definition, subject, timestamp, image_path)
-                            )
-                            st.success("용어가 추가되었습니다!")
-                        except sqlite3.IntegrityError:
-                            st.error("이미 존재하는 용어입니다.")
-                    else:
-                        st.warning("용어와 정의를 모두 입력해주세요")
-        
-        # 용어 검색
-        st.subheader("용어 검색")
-        search_term = st.text_input("용어 검색", key="search_term")
-        
-        # 검색 실행
-        if search_term:
-            terms = db_query(
-                "glossary.db",
-                "SELECT id, term, definition, subject, image_path FROM glossary WHERE term LIKE ? OR definition LIKE ?",
-                (f"%{search_term}%", f"%{search_term}%"),
-                fetch=True
-            )
-        else:
-            terms = db_query(
-                "glossary.db",
-                "SELECT id, term, definition, subject, image_path FROM glossary ORDER BY term",
-                fetch=True
-            )
-        
-        if terms:
-            # 과목별 탭 생성 (용어 개수 포함)
-            subjects = sorted(set([term[3] for term in terms]))
-            subject_counts = {}
-            for term in terms:
-                subj = term[3]
-                subject_counts[subj] = subject_counts.get(subj, 0) + 1
-            
-            # 탭 생성 (과목명 + 용어 개수)
-            tab_labels = [f"📚 {sub} ({subject_counts[sub]})" for sub in subjects]
-            tabs = st.tabs(tab_labels)
-            
-            for i, subject in enumerate(subjects):
-                with tabs[i]:
-                    subject_terms = [t for t in terms if t[3] == subject]
-                    for term_id, term, definition, _, image_path in subject_terms:
-                        with st.expander(f"**{term}**", expanded=False):
-                            st.write(definition)
-                            
-                            # 이미지 표시
-                            if image_path and os.path.exists(image_path):
-                                st.image(image_path, caption=f"{term} 이미지", use_container_width=True)
-                            
-                            if st.button("삭제", key=f"delete_{term_id}"):
-                                db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
-                                st.rerun()
-        else:
-            st.info("용어가 없습니다. 위에서 새로운 용어를 추가해주세요.")
-
-# --- 용어집 화면 (이미지 업로드 기능 추가) ---
-def glossary():
-    st.title("📖 용어집")
-    
-    # 용어 추가 폼 (이미지 업로드 추가)
-    with st.expander("새 용어 추가", expanded=False):
+    with tab2:
+        # 용어 추가 폼
+        st.subheader("📝 용어 추가")
         with st.form("term_form"):
             term = st.text_input("용어", key="term")
             definition = st.text_area("정의", height=150, key="definition")
@@ -1002,7 +705,7 @@ def glossary():
                 key="term_subject"
             )
             
-            # 이미지 업로드 추가
+            # 이미지 업로드
             uploaded_image = st.file_uploader(
                 "이미지 업로드 (선택사항)", 
                 type=['jpg', 'jpeg', 'png'], 
@@ -1016,7 +719,6 @@ def glossary():
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     image_path = None
                     
-                    # 이미지 업로드 처리
                     if uploaded_image is not None:
                         image_path = save_uploaded_image(uploaded_image)
                     
@@ -1031,56 +733,205 @@ def glossary():
                         st.error("이미 존재하는 용어입니다.")
                 else:
                     st.warning("용어와 정의를 모두 입력해주세요")
-    
-    st.divider()
-    
-    # 용어 검색
-    st.subheader("용어 검색")
-    search_term = st.text_input("용어 검색", key="search_term")
-    
-    # 검색 실행
-    if search_term:
-        terms = db_query(
-            "glossary.db",
-            "SELECT id, term, definition, subject, image_path FROM glossary WHERE term LIKE ? OR definition LIKE ?",
-            (f"%{search_term}%", f"%{search_term}%"),
-            fetch=True
-        )
-    else:
-        terms = db_query(
-            "glossary.db",
-            "SELECT id, term, definition, subject, image_path FROM glossary ORDER BY term",
-            fetch=True
-        )
-    
-    if terms:
-        # 과목별 탭 생성 (용어 개수 포함)
-        subjects = sorted(set([term[3] for term in terms]))
-        subject_counts = {}
-        for term in terms:
-            subj = term[3]
-            subject_counts[subj] = subject_counts.get(subj, 0) + 1
         
-        # 탭 생성 (과목명 + 용어 개수)
-        tab_labels = [f"📚 {sub} ({subject_counts[sub]})" for sub in subjects]
-        tabs = st.tabs(tab_labels)
+        # 용어 검색
+        st.subheader("🔍 용어 검색")
+        search_term = st.text_input("검색어", key="search_term", placeholder="용어 또는 정의 검색")
         
-        for i, subject in enumerate(subjects):
-            with tabs[i]:
-                subject_terms = [t for t in terms if t[3] == subject]
-                for term_id, term, definition, _, image_path in subject_terms:
-                    with st.expander(f"**{term}**", expanded=False):
-                        st.write(definition)
-                        
-                        # 이미지 표시
-                        if image_path and os.path.exists(image_path):
-                            st.image(image_path, caption=f"{term} 이미지", use_container_width=True)
-                        
-                        if st.button("삭제", key=f"delete_{term_id}"):
-                            db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
-                            st.rerun()
-    else:
-        st.info("용어가 없습니다. 위에서 새로운 용어를 추가해주세요.")
+        # 검색 실행
+        if search_term:
+            terms = db_query(
+                "glossary.db",
+                "SELECT id, term, definition, subject, image_path FROM glossary WHERE term LIKE ? OR definition LIKE ? ORDER BY term LIMIT 10",
+                (f"%{search_term}%", f"%{search_term}%"),
+                fetch=True
+            )
+        else:
+            terms = db_query(
+                "glossary.db",
+                "SELECT id, term, definition, subject, image_path FROM glossary ORDER BY term LIMIT 10",
+                fetch=True
+            )
+        
+        if terms:
+            for term_id, term, definition, subject, image_path in terms:
+                with st.expander(f"{subject} - {term}", expanded=False):
+                    st.write(definition)
+                    if image_path and os.path.exists(image_path):
+                        st.image(image_path, caption=f"{term} 이미지", use_container_width=True)
+                    if st.button("삭제", key=f"delete_{term_id}"):
+                        db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (term_id,))
+                        st.experimental_rerun()
+        else:
+            st.info("검색 결과가 없습니다.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 동영상 학습 화면 ---
+def video_learning():
+    st.title("🎥 동영상 학습")
+    
+    # 페이징 상태 관리
+    if 'video_page' not in st.session_state:
+        st.session_state.video_page = 1
+    page_size = 5
+    
+    # 과목 선택
+    subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
+    selected_subject = st.selectbox("과목 선택", subjects, key="video_subject")
+    
+    # 정렬 기준 선택
+    sort_options = ["검색 기준", "제목순", "인기순", "최신순"]
+    sort_by = st.selectbox("정렬 기준", sort_options, key="video_sort")
+    
+    # 검색 기준이 선택된 경우 검색어 입력 필드 표시
+    search_keyword = ""
+    if sort_by == "검색 기준":
+        search_keyword = st.text_input("검색어 입력", key="video_search", placeholder="동영상 제목을 입력하세요")
+    
+    # 동영상 추가 폼
+    with st.expander("새 동영상 추가", expanded=False):
+        with st.form("video_form"):
+            video_url = st.text_input("유튜브 URL", key="video_url")
+            video_title = st.text_input("동영상 제목", key="video_title")
+            submitted = st.form_submit_button("추가")
+            
+            if submitted and video_url and video_title:
+                video_id = None
+                if "youtube.com" in video_url or "youtu.be" in video_url:
+                    try:
+                        yt = YouTube(video_url)
+                        video_id = yt.video_id
+                    except:
+                        if "v=" in video_url:
+                            video_id = video_url.split("v=")[1].split("&")[0]
+                        elif "youtu.be/" in video_url:
+                            video_id = video_url.split("youtu.be/")[1].split("?")[0]
+                
+                if video_id:
+                    with sqlite3.connect("videos.db") as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT INTO videos (video_id, subject, title, watch_count, last_watched, url)
+                            VALUES (?, ?, ?, 1, ?, ?)
+                            ON CONFLICT(video_id) DO UPDATE SET
+                                title = excluded.title,
+                                subject = excluded.subject
+                        """, (video_id, selected_subject, video_title, 
+                              datetime.now().strftime("%Y-%m-%d %H:%M:%S"), video_url))
+                        conn.commit()
+                    st.success("동영상이 추가되었습니다!")
+                    st.experimental_rerun()
+                else:
+                    st.error("유효한 YouTube URL을 입력해주세요.")
+    
+    # 동영상 목록
+    st.subheader(f"📺 {selected_subject} 동영상 목록")
+    
+    # 정렬 기준에 따른 쿼리
+    if sort_by == "최신순":
+        order_clause = "ORDER BY last_watched DESC"
+    elif sort_by == "인기순":
+        order_clause = "ORDER BY watch_count DESC"
+    elif sort_by == "제목순":
+        order_clause = "ORDER BY title ASC"
+    else:  # 검색 기준
+        order_clause = "ORDER BY title ASC"
+    
+    # 검색 조건 처리
+    where_clause = "subject=?"
+    params = (selected_subject,)
+    
+    if sort_by == "검색 기준" and search_keyword:
+        where_clause = "subject=? AND title LIKE ?"
+        params = (selected_subject, f'%{search_keyword}%')
+    
+    # 전체 동영상 수 조회
+    total_videos = db_query(
+        "videos.db",
+        f"SELECT COUNT(*) FROM videos WHERE {where_clause}",
+        params,
+        fetch_one=True
+    )[0]
+    
+    # 페이징 계산
+    total_pages = max(1, (total_videos + page_size - 1) // page_size)
+    offset = (st.session_state.video_page - 1) * page_size
+    
+    # 현재 페이지 동영상 조회
+    videos = db_query(
+        "videos.db",
+        f"SELECT video_id, title, watch_count, url FROM videos WHERE {where_clause} {order_clause} LIMIT ? OFFSET ?",
+        params + (page_size, offset),
+        fetch=True
+    )
+    
+    if not videos:
+        st.info("등록된 동영상이 없습니다. 위에서 동영상을 추가하세요.")
+        return
+    
+    # 검색 결과 강조 표시
+    if sort_by == "검색 기준" and search_keyword:
+        st.markdown(f"<div class='search-highlight'>검색 결과: '{search_keyword}' (총 {len(videos)}개)</div>", unsafe_allow_html=True)
+    
+    # 동영상 목록 표시
+    for i, (video_id, title, count, url) in enumerate(videos):
+        # 검색어 강조 표시
+        display_title = title
+        if sort_by == "검색 기준" and search_keyword:
+            display_title = title.replace(search_keyword, f"<mark style='background-color:#004400;'>{search_keyword}</mark>")
+        
+        with st.expander(f"{display_title} (시청 {count}회)", expanded=False):
+            st.markdown(f"""
+            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
+                <iframe src="https://www.youtube.com/embed/{video_id}?rel=0" 
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" 
+                        allowfullscreen></iframe>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("시청 기록 추가", key=f"watch_{video_id}"):
+                    with sqlite3.connect("videos.db") as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE videos 
+                            SET watch_count = watch_count + 1, 
+                                last_watched = ?
+                            WHERE video_id = ?
+                        """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), video_id))
+                        conn.commit()
+                    st.experimental_rerun()
+            with col2:
+                if st.button("삭제", key=f"delete_{video_id}"):
+                    db_query(
+                        "videos.db", 
+                        "DELETE FROM videos WHERE video_id=?", 
+                        (video_id,)
+                    )
+                    st.experimental_rerun()
+            
+            st.markdown(f"[원본 보기]({url})", unsafe_allow_html=True)
+    
+    # 페이징 컨트롤
+    if total_pages > 1:
+        st.divider()
+        col_prev, col_page, col_next = st.columns([1, 2, 1])
+        
+        with col_prev:
+            if st.button("◀ 이전", disabled=st.session_state.video_page <= 1):
+                st.session_state.video_page -= 1
+                st.experimental_rerun()
+        
+        with col_page:
+            st.markdown(f"**페이지 {st.session_state.video_page}/{total_pages}**")
+        
+        with col_next:
+            if st.button("다음 ▶", disabled=st.session_state.video_page >= total_pages):
+                st.session_state.video_page += 1
+                st.experimental_rerun()
 
 # --- 학습 통계 화면 ---
 def learning_stats():
@@ -1128,6 +979,92 @@ def learning_stats():
     except:
         st.info("학습 자료 기록이 없습니다.")
 
+# --- 학습 자료 메인 페이지 ---
+def study_materials():
+    st.title("📚 학습 자료 관리")
+    
+    # 검색 필터
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
+        subject_filter = st.selectbox("과목 선택", ["전체"] + subjects)
+    with col2:
+        search_query = st.text_input("검색어", placeholder="제목 또는 내용 검색")
+    
+    # 검색 쿼리 생성
+    query = "SELECT * FROM study_materials WHERE 1=1"
+    params = []
+    
+    if subject_filter != "전체":
+        query += " AND subject=?"
+        params.append(subject_filter)
+    
+    if search_query:
+        query += " AND (title LIKE ? OR content LIKE ?)"
+        params.extend([f"%{search_query}%", f"%{search_query}%"])
+    
+    query += " ORDER BY timestamp DESC"
+    
+    # 자료 조회
+    materials = db_query("study_materials.db", query, params, fetch=True)
+    
+    if materials:
+        st.subheader(f"총 {len(materials)}개의 학습 자료")
+        
+        for mat in materials:
+            id, user_id, subject, title, content, timestamp = mat
+            with st.expander(f"{subject} - {title} ({timestamp[:10]})", expanded=False):
+                st.write(content)
+                if st.button("삭제", key=f"delete_{id}"):
+                    db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (id,))
+                    st.experimental_rerun()
+    else:
+        st.info("검색 결과가 없습니다. 오른쪽 사이드바에서 새 학습 자료를 추가하세요.")
+
+# --- 용어집 메인 페이지 ---
+def glossary():
+    st.title("📖 용어집 관리")
+    
+    # 검색 필터
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        subjects = ["공통", "전기이론", "전기기기", "전력공학", "회로이론", "전기설비"]
+        subject_filter = st.selectbox("과목 선택", ["전체"] + subjects)
+    with col2:
+        search_query = st.text_input("검색어", placeholder="용어 또는 정의 검색")
+    
+    # 검색 쿼리 생성
+    query = "SELECT * FROM glossary WHERE 1=1"
+    params = []
+    
+    if subject_filter != "전체":
+        query += " AND subject=?"
+        params.append(subject_filter)
+    
+    if search_query:
+        query += " AND (term LIKE ? OR definition LIKE ?)"
+        params.extend([f"%{search_query}%", f"%{search_query}%"])
+    
+    query += " ORDER BY term ASC"
+    
+    # 용어 조회
+    terms = db_query("glossary.db", query, params, fetch=True)
+    
+    if terms:
+        st.subheader(f"총 {len(terms)}개의 용어")
+        
+        for term in terms:
+            id, term_text, definition, subject, timestamp, image_path = term
+            with st.expander(f"{subject} - {term_text}", expanded=False):
+                st.write(definition)
+                if image_path and os.path.exists(image_path):
+                    st.image(image_path, caption=f"{term_text} 이미지", use_container_width=True)
+                if st.button("삭제", key=f"delete_{id}"):
+                    db_query("glossary.db", "DELETE FROM glossary WHERE id=?", (id,))
+                    st.experimental_rerun()
+    else:
+        st.info("검색 결과가 없습니다. 오른쪽 사이드바에서 새 용어를 추가하세요.")
+
 # --- 메인 앱 ---
 def main():
     # 초기화
@@ -1146,7 +1083,29 @@ def main():
     }
     
     menu = sidebar_menu()
-    menu_functions[menu]()
+    
+    # 3분할 레이아웃 컨테이너
+    st.markdown('<div class="main-layout">', unsafe_allow_html=True)
+    
+    # 좌측 사이드바 (고정)
+    with st.container():
+        st.markdown('<div class="left-sidebar"></div>', unsafe_allow_html=True)
+    
+    # 중앙 메인 콘텐츠
+    with st.container():
+        st.markdown('<div class="main-content">', unsafe_allow_html=True)
+        
+        if menu in menu_functions:
+            menu_functions[menu]()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # 우측 사이드바 (조건부 표시)
+    if menu in ["🎥 동영상 학습", "📚 학습 자료", "📖 용어집"]:
+        with st.container():
+            right_sidebar()
+    
+    st.markdown('</div>', unsafe_allow_html=True)  # main-layout 종료
     
     # 푸터
     st.divider()
