@@ -110,6 +110,22 @@ st.markdown("""
         background-color: #000000 !important; /* 배경을 어두운 색으로 대비 ↑ */
         border: 1px solid #00FF00 !important; /* 테두리도 형광색으로 */
     }
+    /* 고정 영역 스타일 */
+    .fixed-section {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background-color: #000000;
+        padding: 15px;
+        border-bottom: 2px solid #00FF00;
+        margin-bottom: 20px;
+    }
+    /* 스크롤 영역 스타일 */
+    .scrollable-section {
+        max-height: calc(100vh - 300px);
+        overflow-y: auto;
+        padding: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -269,65 +285,127 @@ def sidebar_menu():
     
     return menu
 
-# --- 동영상 학습 화면 (페이징 처리 추가) ---
+# --- 동영상 학습 화면 (개선된 레이아웃) ---
 def video_learning():
     st.title("🎥 동영상 학습")
     
-    # 페이징 상태 관리
-    if 'video_page' not in st.session_state:
-        st.session_state.video_page = 1
-    page_size = 5  # 페이지당 동영상 수
+    # 화면을 두 개의 열로 분할 (6:4 비율)
+    col_video, col_memo = st.columns([6, 4])
     
-    # 과목 선택
-    subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
-    selected_subject = st.selectbox("과목 선택", subjects, key="video_subject")
+    # 고정 영역 (학습 자료 입력) - 항상 상단에 표시
+    with col_memo:
+        st.markdown('<div class="fixed-section">', unsafe_allow_html=True)
+        st.subheader("📝 학습 자료 입력")
+        
+        # 사용자 ID 고정값 사용
+        user_id = "miwooni"
+        
+        # 과목 선택
+        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
+        material_subject = st.selectbox(
+            "과목 선택", 
+            subjects,
+            key="material_subject"
+        )
+        
+        # 제목 입력
+        material_title = st.text_input("제목", key="material_title")
+        
+        # 내용 입력 (10줄로 축소)
+        material_content = st.text_area("내용", height=200, key="material_content")
+        
+        # 저장 버튼
+        if st.button("학습 자료 저장", key="save_material"):
+            if material_title and material_content:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                db_query(
+                    "study_materials.db",
+                    "INSERT INTO study_materials (user_id, subject, title, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+                    (user_id, material_subject, material_title, material_content, timestamp)
+                )
+                st.success("학습 자료가 저장되었습니다!")
+            else:
+                st.warning("제목과 내용을 입력해주세요")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # 스크롤 가능 영역 (저장된 학습 자료)
+        st.markdown('<div class="scrollable-section">', unsafe_allow_html=True)
+        st.subheader("📚 저장된 학습 자료")
+        materials = db_query(
+            "study_materials.db",
+            "SELECT id, subject, title, content, timestamp FROM study_materials WHERE user_id=? ORDER BY timestamp DESC LIMIT 10",
+            (user_id,),
+            fetch=True
+        )
+        
+        if materials:
+            for material in materials:
+                mat_id, subject, title, content, timestamp = material
+                with st.expander(f"{subject} - {title} ({timestamp[:10]})", expanded=False):
+                    st.write(content)
+                    if st.button("삭제", key=f"delete_mat_{mat_id}"):
+                        db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
+                        st.rerun()
+        else:
+            st.info("저장된 학습 자료가 없습니다.")
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    # 정렬 기준 선택
-    sort_options = ["제목순", "인기순", "최신순"]
-    sort_by = st.selectbox("정렬 기준", sort_options, key="video_sort")
-    
-    # 동영상 추가 폼
-    with st.expander("새 동영상 추가", expanded=False):
-        with st.form("video_form"):
-            video_url = st.text_input("유튜브 URL", key="video_url")
-            video_title = st.text_input("동영상 제목", key="video_title")
-            submitted = st.form_submit_button("추가")
-            
-            if submitted and video_url and video_title:
-                video_id = None
-                if "youtube.com" in video_url or "youtu.be" in video_url:
-                    try:
-                        yt = YouTube(video_url)
-                        video_id = yt.video_id
-                    except:
-                        if "v=" in video_url:
-                            video_id = video_url.split("v=")[1].split("&")[0]
-                        elif "youtu.be/" in video_url:
-                            video_id = video_url.split("youtu.be/")[1].split("?")[0]
-                
-                if video_id:
-                    with sqlite3.connect("videos.db") as conn:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            INSERT INTO videos (video_id, subject, title, watch_count, last_watched, url)
-                            VALUES (?, ?, ?, 1, ?, ?)
-                            ON CONFLICT(video_id) DO UPDATE SET
-                                title = excluded.title,
-                                subject = excluded.subject
-                        """, (video_id, selected_subject, video_title, 
-                              datetime.now().strftime("%Y-%m-%d %H:%M:%S"), video_url))
-                        conn.commit()
-                    st.success("동영상이 추가되었습니다!")
-                    st.rerun()
-                else:
-                    st.error("유효한 YouTube URL을 입력해주세요.")
-    
-    # 학습 자료를 위한 레이아웃 (용어집 제거)
-    col_video, col_memo = st.columns([3, 2])
-    
+    # 스크롤 가능 영역 (동영상 목록)
     with col_video:
+        st.markdown('<div class="scrollable-section">', unsafe_allow_html=True)
+        
+        # 페이징 상태 관리
+        if 'video_page' not in st.session_state:
+            st.session_state.video_page = 1
+        page_size = 5  # 페이지당 동영상 수
+        
+        # 과목 선택
+        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
+        selected_subject = st.selectbox("과목 선택", subjects, key="video_subject")
+        
+        # 정렬 기준 선택
+        sort_options = ["제목순", "인기순", "최신순"]
+        sort_by = st.selectbox("정렬 기준", sort_options, key="video_sort")
+        
+        # 동영상 추가 폼
+        with st.expander("새 동영상 추가", expanded=False):
+            with st.form("video_form"):
+                video_url = st.text_input("유튜브 URL", key="video_url")
+                video_title = st.text_input("동영상 제목", key="video_title")
+                submitted = st.form_submit_button("추가")
+                
+                if submitted and video_url and video_title:
+                    video_id = None
+                    if "youtube.com" in video_url or "youtu.be" in video_url:
+                        try:
+                            yt = YouTube(video_url)
+                            video_id = yt.video_id
+                        except:
+                            if "v=" in video_url:
+                                video_id = video_url.split("v=")[1].split("&")[0]
+                            elif "youtu.be/" in video_url:
+                                video_id = video_url.split("youtu.be/")[1].split("?")[0]
+                    
+                    if video_id:
+                        with sqlite3.connect("videos.db") as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT INTO videos (video_id, subject, title, watch_count, last_watched, url)
+                                VALUES (?, ?, ?, 1, ?, ?)
+                                ON CONFLICT(video_id) DO UPDATE SET
+                                    title = excluded.title,
+                                    subject = excluded.subject
+                            """, (video_id, selected_subject, video_title, 
+                                  datetime.now().strftime("%Y-%m-%d %H:%M:%S"), video_url))
+                            conn.commit()
+                        st.success("동영상이 추가되었습니다!")
+                        st.rerun()
+                    else:
+                        st.error("유효한 YouTube URL을 입력해주세요.")
+        
         # 동영상 목록
-        st.subheader(f"{selected_subject} 동영상 목록")
+        st.subheader(f"📺 {selected_subject} 동영상 목록")
         
         # 정렬 기준에 따른 쿼리
         if sort_by == "최신순":
@@ -359,6 +437,7 @@ def video_learning():
         
         if not videos:
             st.info("등록된 동영상이 없습니다. 위에서 동영상을 추가하세요.")
+            st.markdown('</div>', unsafe_allow_html=True)
             return
         
         # 동영상 목록 표시 (항상 접힌 상태로)
@@ -413,59 +492,8 @@ def video_learning():
                 if st.button("다음 ▶", disabled=st.session_state.video_page >= total_pages):
                     st.session_state.video_page += 1
                     st.rerun()
-    
-    with col_memo:
-        # 학습 자료 입력
-        st.subheader("학습 자료")
         
-        # 사용자 ID 고정값 사용
-        user_id = "miwooni"
-        
-        # 과목 선택
-        material_subject = st.selectbox(
-            "과목 선택", 
-            subjects,
-            key="material_subject"
-        )
-        
-        # 제목 입력
-        material_title = st.text_input("제목", key="material_title")
-        
-        # 내용 입력 (20줄로 확대)
-        material_content = st.text_area("내용", height=400, key="material_content")
-        
-        # 저장 버튼
-        if st.button("학습 자료 저장", key="save_material"):
-            if material_title and material_content:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                db_query(
-                    "study_materials.db",
-                    "INSERT INTO study_materials (user_id, subject, title, content, timestamp) VALUES (?, ?, ?, ?, ?)",
-                    (user_id, material_subject, material_title, material_content, timestamp)
-                )
-                st.success("학습 자료가 저장되었습니다!")
-            else:
-                st.warning("제목과 내용을 입력해주세요")
-        
-        # 저장된 학습 자료 보기
-        st.subheader("저장된 학습 자료")
-        materials = db_query(
-            "study_materials.db",
-            "SELECT id, subject, title, content, timestamp FROM study_materials WHERE user_id=? ORDER BY timestamp DESC",
-            (user_id,),
-            fetch=True
-        )
-        
-        if materials:
-            for material in materials:
-                mat_id, subject, title, content, timestamp = material
-                with st.expander(f"{subject} - {title} ({timestamp[:10]})", expanded=False):
-                    st.write(content)
-                    if st.button("삭제", key=f"delete_mat_{mat_id}"):
-                        db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
-                        st.rerun()
-        else:
-            st.info("저장된 학습 자료가 없습니다.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 학습 자료 화면 (왼쪽 학습자료, 오른쪽 용어집) ---
 def study_materials():
