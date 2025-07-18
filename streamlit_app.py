@@ -126,6 +126,13 @@ st.markdown("""
         overflow-y: auto;
         padding: 10px;
     }
+    /* 검색 기준 선택시 강조 */
+    .search-highlight {
+        background-color: #004400;
+        padding: 5px;
+        border-radius: 5px;
+        border: 1px solid #00FF00;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -285,7 +292,7 @@ def sidebar_menu():
     
     return menu
 
-# --- 동영상 학습 화면 (개선된 레이아웃) ---
+# --- 동영상 학습 화면 (검색 기능 추가) ---
 def video_learning():
     st.title("🎥 동영상 학습")
     
@@ -364,9 +371,14 @@ def video_learning():
         subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
         selected_subject = st.selectbox("과목 선택", subjects, key="video_subject")
         
-        # 정렬 기준 선택
-        sort_options = ["제목순", "인기순", "최신순"]
+        # 정렬 기준 선택 (검색 기준을 기본값으로 설정)
+        sort_options = ["검색 기준", "제목순", "인기순", "최신순"]
         sort_by = st.selectbox("정렬 기준", sort_options, key="video_sort")
+        
+        # 검색 기준이 선택된 경우 검색어 입력 필드 표시
+        search_keyword = ""
+        if sort_by == "검색 기준":
+            search_keyword = st.text_input("검색어 입력", key="video_search", placeholder="동영상 제목을 입력하세요")
         
         # 동영상 추가 폼
         with st.expander("새 동영상 추가", expanded=False):
@@ -412,14 +424,24 @@ def video_learning():
             order_clause = "ORDER BY last_watched DESC"
         elif sort_by == "인기순":
             order_clause = "ORDER BY watch_count DESC"
-        else:  # 제목순
+        elif sort_by == "제목순":
             order_clause = "ORDER BY title ASC"
+        else:  # 검색 기준
+            order_clause = "ORDER BY title ASC"
+        
+        # 검색 조건 처리
+        where_clause = "subject=?"
+        params = (selected_subject,)
+        
+        if sort_by == "검색 기준" and search_keyword:
+            where_clause = "subject=? AND title LIKE ?"
+            params = (selected_subject, f'%{search_keyword}%')
         
         # 전체 동영상 수 조회
         total_videos = db_query(
             "videos.db",
-            f"SELECT COUNT(*) FROM videos WHERE subject=?",
-            (selected_subject,),
+            f"SELECT COUNT(*) FROM videos WHERE {where_clause}",
+            params,
             fetch_one=True
         )[0]
         
@@ -430,8 +452,8 @@ def video_learning():
         # 현재 페이지 동영상 조회
         videos = db_query(
             "videos.db",
-            f"SELECT video_id, title, watch_count, url FROM videos WHERE subject=? {order_clause} LIMIT ? OFFSET ?",
-            (selected_subject, page_size, offset),
+            f"SELECT video_id, title, watch_count, url FROM videos WHERE {where_clause} {order_clause} LIMIT ? OFFSET ?",
+            params + (page_size, offset),
             fetch=True
         )
         
@@ -440,9 +462,18 @@ def video_learning():
             st.markdown('</div>', unsafe_allow_html=True)
             return
         
+        # 검색 결과 강조 표시
+        if sort_by == "검색 기준" and search_keyword:
+            st.markdown(f"<div class='search-highlight'>검색 결과: '{search_keyword}' (총 {len(videos)}개)</div>", unsafe_allow_html=True)
+        
         # 동영상 목록 표시 (항상 접힌 상태로)
         for i, (video_id, title, count, url) in enumerate(videos):
-            with st.expander(f"{title} (시청 {count}회)", expanded=False):
+            # 검색어 강조 표시
+            display_title = title
+            if sort_by == "검색 기준" and search_keyword:
+                display_title = title.replace(search_keyword, f"<mark style='background-color:#004400;'>{search_keyword}</mark>")
+            
+            with st.expander(f"{display_title} (시청 {count}회)", expanded=False):
                 st.markdown(f"""
                 <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
                     <iframe src="https://www.youtube.com/embed/{video_id}?rel=0" 
@@ -811,9 +842,9 @@ def main():
     # 메뉴 라우팅
     menu_functions = {
         "🏠 홈": home,
-        "🧠 CBT 모의고사": integrate_comcbt_exam,  # COMCBT 통합으로 변경
+        "🧠 CBT 모의고사": integrate_comcbt_exam,
         "🎥 동영상 학습": video_learning,
-        "📚 학습 자료": study_materials,  # 수정된 학습 자료 화면
+        "📚 학습 자료": study_materials,
         "📖 용어집": glossary,
         "📊 학습 통계": learning_stats
     }
