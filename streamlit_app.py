@@ -80,17 +80,10 @@ st.markdown("""
         border-radius: 10px;
         overflow: hidden;
     }
-    /* 사이드바 메뉴 글자 크기 2배 확대 */
+    /* 사이드바 메뉴 글자 크기 2.6배 확대 (30% 증가) */
     .stSidebar .stRadio > label > div {
-        font-size: 24px !important;
+        font-size: 31.2px !important;  /* 24px * 1.3 = 31.2px */
         padding: 15px 0 !important;
-    }
-    /* 이미지 표시 스타일 */
-    .term-image {
-        max-width: 100%;
-        border: 1px solid #00FF00;
-        border-radius: 5px;
-        margin-top: 10px;
     }
     /* 페이징 컨트롤 스타일 */
     .pagination-control {
@@ -133,23 +126,62 @@ st.markdown("""
         border-radius: 5px;
         border: 1px solid #00FF00;
     }
+    /* 회로이론 기호 테이블 스타일 */
+    .symbol-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 0.95em;
+        background-color: #002200;
+        border: 1px solid #00FF00;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .symbol-table th {
+        background-color: #004400;
+        color: #00FF00;
+        text-align: center;
+        padding: 12px 15px;
+        font-weight: bold;
+        border-bottom: 2px solid #00FF00;
+    }
+    .symbol-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #00AA00;
+    }
+    .symbol-table tr:nth-of-type(even) {
+        background-color: #001100;
+    }
+    .symbol-table tr:last-of-type {
+        border-bottom: 2px solid #00FF00;
+    }
+    .symbol-table tr:hover {
+        background-color: #003300;
+    }
+    .symbol-table td:first-child {
+        text-align: center;
+        font-weight: bold;
+    }
+    .symbol-table td:nth-child(2) {
+        text-align: center;
+        font-family: monospace;
+    }
+    .highlight-row {
+        background-color: #003300 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 개발자 크레딧 ---
 def show_developer_credit():
     st.sidebar.divider()
-    # 사이드바에 이미지 추가 (크기 40% 확대: 150 -> 210)
-    try:
-        st.sidebar.image("화면 캡처 2025-07-15 094924.jpg", width=210)
-        st.sidebar.markdown("<center>나는 할 수 밖에 없다.!!!<br>⚡ Made by Sung Jin ⚡</center>", unsafe_allow_html=True)
-    except:
-        st.sidebar.markdown("""
-        <div style="text-align: center; padding: 10px; background-color: #002200; border-radius: 10px; margin-top: 20px;">
-            <p style="color: #00FF00; margin-bottom: 5px;">나는 할 수 밖에 없다.!!!</p>
-            <h4 style="color: #00FF00; margin-top: 0;">⚡ Made by Sung Jin ⚡</h4>
-        </div>
-        """, unsafe_allow_html=True)
+    st.sidebar.markdown("""
+    <div style="text-align: center; padding: 10px; background-color: #002200; border-radius: 10px; margin-top: 20px;">
+        <p style="color: #00FF00; margin-bottom: 5px;">나는 할 수 밖에 없다.!!!</p>
+        <h4 style="color: #00FF00; margin-top: 0;">⚡ Made by Sung Jin ⚡</h4>
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- 데이터베이스 초기화 ---
 def init_databases():
@@ -259,31 +291,288 @@ def integrate_comcbt_exam():
     </div>
     """, unsafe_allow_html=True)
 
+# --- 회로이론 기호 설명 표 ---
+def circuit_symbols_table():
+    st.title("⚡ 회로이론 필수 기호 사전")
+    st.markdown("### 전기기사 시험을 위한 핵심 회로이론 기호 총정리")
+    
+    # 표 데이터
+    table_html = """
+    <table class="symbol-table">
+        <thead>
+            <tr>
+                <th>No.</th>
+                <th>기호</th>
+                <th>한글 읽는법</th>
+                <th>의미</th>
+                <th>단위</th>
+                <th>공식 및 설명</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>V</td>
+                <td>-</td>
+                <td>전압</td>
+                <td>[V]</td>
+                <td>V = I·R, V = W/Q</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>I</td>
+                <td>-</td>
+                <td>전류</td>
+                <td>[A]</td>
+                <td>I = V/R, I = Q/t</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>R</td>
+                <td>-</td>
+                <td>저항</td>
+                <td>[Ω]</td>
+                <td>R = V/I, R = ρ·l/A</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td>C</td>
+                <td>-</td>
+                <td>정전용량</td>
+                <td>[F]</td>
+                <td>C = Q/V, C합 직렬/병렬 공식</td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td>L</td>
+                <td>-</td>
+                <td>인덕턴스</td>
+                <td>[H]</td>
+                <td>V = L·(di/dt)</td>
+            </tr>
+            <tr>
+                <td>6</td>
+                <td>Z</td>
+                <td>-</td>
+                <td>임피던스</td>
+                <td>[Ω]</td>
+                <td>Z = √(R² + (XL − XC)²)</td>
+            </tr>
+            <tr>
+                <td>7</td>
+                <td>XL</td>
+                <td>-</td>
+                <td>인덕턴스 리액턴스</td>
+                <td>[Ω]</td>
+                <td>XL = 2πfL</td>
+            </tr>
+            <tr>
+                <td>8</td>
+                <td>XC</td>
+                <td>-</td>
+                <td>커패시턴스 리액턴스</td>
+                <td>[Ω]</td>
+                <td>XC = 1 / (2πfC)</td>
+            </tr>
+            <tr>
+                <td>9</td>
+                <td>S</td>
+                <td>-</td>
+                <td>피상전력</td>
+                <td>[VA]</td>
+                <td>S = VI</td>
+            </tr>
+            <tr>
+                <td>10</td>
+                <td>P</td>
+                <td>-</td>
+                <td>유효전력</td>
+                <td>[W]</td>
+                <td>P = VIcosθ, P = I²R, P = V²/R</td>
+            </tr>
+            <tr>
+                <td>11</td>
+                <td>Q</td>
+                <td>-</td>
+                <td>무효전력</td>
+                <td>[Var]</td>
+                <td>Q = VIsinθ</td>
+            </tr>
+            <tr>
+                <td>12</td>
+                <td>PF</td>
+                <td>-</td>
+                <td>역률</td>
+                <td>-</td>
+                <td>PF = cosθ</td>
+            </tr>
+            <tr>
+                <td>13</td>
+                <td>f</td>
+                <td>-</td>
+                <td>주파수</td>
+                <td>[Hz]</td>
+                <td>f = 1/T</td>
+            </tr>
+            <tr>
+                <td>14</td>
+                <td>T</td>
+                <td>-</td>
+                <td>주기</td>
+                <td>[s]</td>
+                <td>T = 1/f</td>
+            </tr>
+            <tr>
+                <td>15</td>
+                <td>ω</td>
+                <td>오메가</td>
+                <td>각속도</td>
+                <td>[rad/s]</td>
+                <td>ω = 2πf</td>
+            </tr>
+            <tr>
+                <td>16</td>
+                <td>t</td>
+                <td>-</td>
+                <td>시간</td>
+                <td>[s]</td>
+                <td>전류, 전하량 계산에 사용</td>
+            </tr>
+            <tr>
+                <td>17</td>
+                <td>Q</td>
+                <td>-</td>
+                <td>전하</td>
+                <td>[C]</td>
+                <td>Q = I·t</td>
+            </tr>
+            <tr>
+                <td>18</td>
+                <td>ρ</td>
+                <td>로</td>
+                <td>고유저항</td>
+                <td>[Ω·m]</td>
+                <td>R = ρ·l/A</td>
+            </tr>
+            <tr>
+                <td>19</td>
+                <td>l</td>
+                <td>-</td>
+                <td>도선 길이</td>
+                <td>[m]</td>
+                <td>길이 증가 시 저항 증가</td>
+            </tr>
+            <tr>
+                <td>20</td>
+                <td>A</td>
+                <td>-</td>
+                <td>단면적</td>
+                <td>[m²]</td>
+                <td>A 증가 시 저항 감소</td>
+            </tr>
+            <tr>
+                <td>21</td>
+                <td>j</td>
+                <td>제이</td>
+                <td>허수</td>
+                <td>-</td>
+                <td>j² = -1, 교류 해석에 사용</td>
+            </tr>
+            <tr>
+                <td>22</td>
+                <td>jθ</td>
+                <td>제이 세타</td>
+                <td>복소수 위상 표현</td>
+                <td>-</td>
+                <td>e^{jθ} = cosθ + jsinθ (오일러 공식)</td>
+            </tr>
+            <tr>
+                <td>23</td>
+                <td>τ</td>
+                <td>타우</td>
+                <td>시정수</td>
+                <td>[s]</td>
+                <td>RC, L/R</td>
+            </tr>
+            <tr>
+                <td>24</td>
+                <td>φ</td>
+                <td>파이</td>
+                <td>위상각</td>
+                <td>[°], [rad]</td>
+                <td>tanφ = (XL − XC)/R</td>
+            </tr>
+            <tr>
+                <td>25</td>
+                <td>π</td>
+                <td>파이</td>
+                <td>원주율</td>
+                <td>-</td>
+                <td>180° = π rad</td>
+            </tr>
+            <tr>
+                <td>26</td>
+                <td>rad</td>
+                <td>라디안</td>
+                <td>라디안</td>
+                <td>-</td>
+                <td>1° = π/180 rad</td>
+            </tr>
+            <tr>
+                <td>27</td>
+                <td>Δ / Y</td>
+                <td>델타 / 와이</td>
+                <td>결선 방식</td>
+                <td>-</td>
+                <td>3상 결선: Δ = 삼각형, Y = 별</td>
+            </tr>
+            <tr>
+                <td>28</td>
+                <td>E</td>
+                <td>-</td>
+                <td>기전력</td>
+                <td>[V]</td>
+                <td>E = V + Ir (내부 저항 포함)</td>
+            </tr>
+        </tbody>
+    </table>
+    """
+    
+    # 표 표시
+    st.markdown(table_html, unsafe_allow_html=True)
+    
+    # 추가 설명
+    st.markdown("""
+    <div style="background-color: #002200; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #00FF00;">
+        <h4>📌 회로이론 기호 학습 가이드</h4>
+        <ul>
+            <li>기호와 단위를 매칭하는 연습을 통해 회로 해석 능력 향상</li>
+            <li>공식 열은 해당 기호가 사용되는 대표적인 공식을 표시</li>
+            <li>빨간색으로 표시된 읽는법은 주의가 필요한 발음</li>
+            <li>표를 클릭하면 해당 행이 강조되어 가시성 향상</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.divider()
+    st.markdown("""
+    <div style="text-align: center; padding: 20px; background-color: #002200; border-radius: 10px; margin-top: 30px; border: 1px solid #00FF00;">
+        <h4>⚡ 학습 팁</h4>
+        <p>이 표를 매일 5분씩 복습하면 회로이론 문제 해결 속도가 크게 향상됩니다!</p>
+        <p>특히 <strong style="color:#00FF99;">임피던스(Z), 리액턴스(X), 위상각(φ)</strong> 관련 기호는 반드시 숙지해야 합니다.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
 # --- 홈 화면 ---
 def home():
-    st.title("불가능은 있다!! 하지만 난 불가능에 도전한다!!")
-    st.markdown("""
-    ### 🚀 간절하지 않으면 생각도 말라 !!!. 🚀
-    - **🧠 CBT 모의고사**: COMCBT 통합 모의고사
-    - **🎥 동영상 학습**: 필요한 강의만 집중해서 시청
-    - **📚 학습 자료**: 과목별 학습 메모 관리
-    - **📖 용어집**: 전기기사 필수 용어 사전
-    - **📊 학습 통계**: 나의 학습 패턴 분석
-    """)
-    
-    # 홈 화면 이미지
-    try:
-        st.image("화면 캡처 2025-07-15 094924.jpg", 
-                 use_container_width=True, caption="모카 멋진척 하기!!!")
-    except:
-        pass
+    circuit_symbols_table()
 
 # --- 사이드바 메뉴 ---
 def sidebar_menu():
     st.sidebar.title("📚 학습 메뉴")
     menu = st.sidebar.radio(
         "메인 메뉴",
-        ["🏠 홈", "🧠 CBT 모의고사", "🎥 동영상 학습", "📚 학습 자료", "📖 용어집", "📊 학습 통계"],
+        ["🏠 회로이론 기호", "🧠 CBT 모의고사", "🎥 동영상 학습", "📚 학습 자료", "📖 용어집", "📊 학습 통계"],
         key="main_menu"
     )
     
@@ -299,50 +588,58 @@ def video_learning():
     # 화면을 두 개의 열로 분할 (6:4 비율)
     col_video, col_memo = st.columns([6, 4])
     
-    # 고정 영역 (학습 자료 입력) - 항상 상단에 표시
+    # 학습 자료 입력 부분 (드롭다운으로 변경)
     with col_memo:
-        st.markdown('<div class="fixed-section">', unsafe_allow_html=True)
-        st.subheader("📝 학습 자료 입력")
+        # 학습 자료 입력 (드롭다운)
+        with st.expander("📝 학습 자료 입력", expanded=True):
+            # 사용자 ID 고정값 사용
+            user_id = "miwooni"
+            
+            # 과목 선택
+            subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
+            material_subject = st.selectbox(
+                "과목 선택", 
+                subjects,
+                key="material_subject"
+            )
+            
+            # 제목 입력
+            material_title = st.text_input("제목", key="material_title")
+            
+            # 내용 입력 (10줄로 축소)
+            material_content = st.text_area("내용", height=200, key="material_content")
+            
+            # 저장 버튼
+            if st.button("학습 자료 저장", key="save_material"):
+                if material_title and material_content:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    db_query(
+                        "study_materials.db",
+                        "INSERT INTO study_materials (user_id, subject, title, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+                        (user_id, material_subject, material_title, material_content, timestamp)
+                    )
+                    st.success("학습 자료가 저장되었습니다!")
+                else:
+                    st.warning("제목과 내용을 입력해주세요")
         
-        # 사용자 ID 고정값 사용
-        user_id = "miwooni"
+        # 저장된 학습 자료 검색 기능 추가
+        st.subheader("📚 저장된 학습 자료 검색")
         
-        # 과목 선택
-        subjects = ["회로이론", "전기이론", "전기기기", "전력공학", "전기설비"]
-        material_subject = st.selectbox(
-            "과목 선택", 
+        # 과목 선택 (입력 폼과 동일한 과목 사용)
+        search_subject = st.selectbox(
+            "검색 과목", 
             subjects,
-            key="material_subject"
+            key="search_subject"
         )
         
-        # 제목 입력
-        material_title = st.text_input("제목", key="material_title")
+        # 키워드 검색
+        search_keyword = st.text_input("검색어", key="material_search", placeholder="제목 또는 내용 검색")
         
-        # 내용 입력 (10줄로 축소)
-        material_content = st.text_area("내용", height=200, key="material_content")
-        
-        # 저장 버튼
-        if st.button("학습 자료 저장", key="save_material"):
-            if material_title and material_content:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                db_query(
-                    "study_materials.db",
-                    "INSERT INTO study_materials (user_id, subject, title, content, timestamp) VALUES (?, ?, ?, ?, ?)",
-                    (user_id, material_subject, material_title, material_content, timestamp)
-                )
-                st.success("학습 자료가 저장되었습니다!")
-            else:
-                st.warning("제목과 내용을 입력해주세요")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # 스크롤 가능 영역 (저장된 학습 자료)
-        st.markdown('<div class="scrollable-section">', unsafe_allow_html=True)
-        st.subheader("📚 저장된 학습 자료")
+        # 검색 실행
         materials = db_query(
             "study_materials.db",
-            "SELECT id, subject, title, content, timestamp FROM study_materials WHERE user_id=? ORDER BY timestamp DESC LIMIT 10",
-            (user_id,),
+            "SELECT id, subject, title, content, timestamp FROM study_materials WHERE user_id=? AND subject=? AND (title LIKE ? OR content LIKE ?) ORDER BY timestamp DESC LIMIT 10",
+            (user_id, search_subject, f'%{search_keyword}%', f'%{search_keyword}%'),
             fetch=True
         )
         
@@ -355,8 +652,7 @@ def video_learning():
                         db_query("study_materials.db", "DELETE FROM study_materials WHERE id=?", (mat_id,))
                         st.rerun()
         else:
-            st.info("저장된 학습 자료가 없습니다.")
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.info("검색 결과가 없습니다.")
     
     # 스크롤 가능 영역 (동영상 목록)
     with col_video:
@@ -841,7 +1137,7 @@ def main():
     
     # 메뉴 라우팅
     menu_functions = {
-        "🏠 홈": home,
+        "🏠 회로이론 기호": home,
         "🧠 CBT 모의고사": integrate_comcbt_exam,
         "🎥 동영상 학습": video_learning,
         "📚 학습 자료": study_materials,
