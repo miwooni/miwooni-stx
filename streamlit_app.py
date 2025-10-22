@@ -19,7 +19,7 @@ def check_login():
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
             with st.form("login_form"):
-                st.subheader("MIWOONI 대시보드 로그인")
+                st.subheader("모카 대시보드 로그인")
                 input_id = st.text_input("아이디")
                 input_pw = st.text_input("비밀번호", type="password")
                 login_btn = st.form_submit_button("로그인")
