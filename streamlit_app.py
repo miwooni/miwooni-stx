@@ -321,14 +321,14 @@ st_autorefresh(interval=5000, key="auto_refresh")
 
 # ---------------------- 전역 변수 ----------------------
 default_holdings = {
-    'KRW-STX': 15000,
-    'KRW-ENA': 13000,
+    'KRW-STX': 15604.63431344,
+    'KRW-ENA': 14581.65766901,
     'KRW-HBAR': 62216,
     'KRW-DOGE': 61194.37067502,
 }
 markets = list(default_holdings.keys())
-timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분', 360: '360분'}
-TOTAL_INVESTMENT = 58500000
+timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분'}
+TOTAL_INVESTMENT = 59100000
 
 # ---------------------- 데이터 함수 ----------------------
 @st.cache_data(ttl=10)
