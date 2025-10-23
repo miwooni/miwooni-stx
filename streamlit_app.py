@@ -328,7 +328,7 @@ default_holdings = {
 }
 markets = list(default_holdings.keys())
 timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분'}
-TOTAL_INVESTMENT = 59100000
+TOTAL_INVESTMENT = 61800000
 
 # ---------------------- 데이터 함수 ----------------------
 @st.cache_data(ttl=10)
