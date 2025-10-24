@@ -19,7 +19,7 @@ def check_login():
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
             with st.form("login_form"):
-                st.subheader("스택야 달려!!!")
+                st.subheader("MIWOONI 대시보드 로그인")
                 input_id = st.text_input("아이디")
                 input_pw = st.text_input("비밀번호", type="password")
                 login_btn = st.form_submit_button("로그인")
@@ -27,6 +27,7 @@ def check_login():
                 if login_btn:
                     if input_id == "miwooni" and input_pw == "Fudfud8080@":
                         st.session_state.logged_in = True
+                        st.session_state.login_time = datetime.now()
                         st.success("로그인 성공! 대시보드로 이동합니다.")
                         st.rerun()
                     else:
@@ -321,14 +322,14 @@ st_autorefresh(interval=5000, key="auto_refresh")
 
 # ---------------------- 전역 변수 ----------------------
 default_holdings = {
-    'KRW-STX': 15604.63431344,
-    'KRW-ENA': 14581.65766901,
+    'KRW-STX': 15604.4864,
+    'KRW-ENA': 13000,
     'KRW-HBAR': 62216,
     'KRW-DOGE': 61194.37067502,
 }
 markets = list(default_holdings.keys())
-timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분'}
-TOTAL_INVESTMENT = 61800000
+timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분', 360: '360분'}
+TOTAL_INVESTMENT = 58500000
 
 # ---------------------- 데이터 함수 ----------------------
 @st.cache_data(ttl=10)
@@ -368,6 +369,13 @@ def fetch_ohlcv(market, timeframe, count=300):
 with st.sidebar:
     st.header("⚙️ 제어 패널")
     selected_tf = st.selectbox('차트 주기', list(timeframes.keys()), format_func=lambda x: timeframes[x])
+    
+    # 로그인 정보 표시
+    if 'login_time' in st.session_state:
+        login_duration = datetime.now() - st.session_state.login_time
+        hours = login_duration.seconds // 3600
+        minutes = (login_duration.seconds % 3600) // 60
+        st.info(f"로그인 시간: {hours}시간 {minutes}분 경과")
     
     # 로그아웃 버튼
     if st.button("🚪 로그아웃"):
@@ -410,7 +418,7 @@ def generate_coin_table():
     base_krw = base_qty * base_price * 0.9995
 
     compare_data = []
-    now = datetime.now()  # <-- 추가: now를 함수 내부에서 정의
+    now = datetime.now()
     for market in markets:
         coin = market.split('-')[1]
         price_data = prices.get(market, {'trade_price': 0, 'signed_change_rate': 0})
