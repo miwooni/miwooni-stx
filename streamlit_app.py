@@ -323,7 +323,7 @@ st_autorefresh(interval=5000, key="auto_refresh")
 # ---------------------- 전역 변수 ----------------------
 default_holdings = {
     'KRW-STX': 15604.4864,
-    'KRW-ENA': 13000,
+    'KRW-ENA': 14582,
     'KRW-HBAR': 62216,
     'KRW-DOGE': 61194.37067502,
 }
