@@ -19,13 +19,13 @@ def check_login():
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
             with st.form("login_form"):
-                st.subheader("화이팅!!!")
+                st.subheader("스택야 달려!!!")
                 input_id = st.text_input("아이디")
                 input_pw = st.text_input("비밀번호", type="password")
                 login_btn = st.form_submit_button("로그인")
                 
                 if login_btn:
-                    if input_id == "연" and input_pw == "멘탈":
+                    if input_id == "miwooni" and input_pw == "Fudfud8080@":
                         st.session_state.logged_in = True
                         st.success("로그인 성공! 대시보드로 이동합니다.")
                         st.rerun()
