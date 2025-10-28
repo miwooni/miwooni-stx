@@ -322,8 +322,8 @@ st_autorefresh(interval=5000, key="auto_refresh")
 
 # ---------------------- 전역 변수 ----------------------
 default_holdings = {
-    'KRW-STX': 15604.4864,
     'KRW-ENA': 14800.605,
+    'KRW-STX': 15604.4864,
     'KRW-HBAR': 62216,
     'KRW-DOGE': 61194.37067502,
 }
@@ -384,18 +384,18 @@ with st.sidebar:
     
     st.subheader("💰 투자 현황")
     prices = get_current_prices()
-    stx_holding = default_holdings['KRW-STX']
-    stx_price = prices['KRW-STX']['trade_price']
-    current_value = stx_holding * stx_price
+    ena_holding = default_holdings['KRW-ENA']
+    ena_price = prices['KRW-ENA']['trade_price']
+    current_value = ena_holding * ena_price
     profit = current_value - TOTAL_INVESTMENT
     profit_percent = (profit / TOTAL_INVESTMENT) * 100
     profit_emoji = "🔻" if profit < 0 else "🟢"
     
     st.metric("총 투자금액", f"{TOTAL_INVESTMENT:,.0f} 원")
-    st.metric("STX 자산가치", 
+    st.metric("ENA 자산가치", 
             f"{current_value:,.0f} 원", 
             f"{profit_emoji} {profit:+,.0f} 원 ({profit_percent:+.2f}%)")
-    st.metric("STX 보유량", f"{stx_holding:,.2f} EA")
+    st.metric("ENA 보유량", f"{ena_holding:,.2f} EA")
     
     st.subheader("🔔 텔레그램 알림")
     telegram_enabled = st.checkbox("텔레그램 알림 활성화")
@@ -411,7 +411,7 @@ if 'last_table_alert_time' not in st.session_state:
 
 def generate_coin_table():
     signal_scores = {} 
-    base_market = 'KRW-STX'
+    base_market = 'KRW-ENA'
     base_qty = default_holdings[base_market]
     base_price_data = prices.get(base_market, {'trade_price': 0, 'signed_change_rate': 0})
     base_price = base_price_data['trade_price']
