@@ -535,7 +535,7 @@ if (now - st.session_state.last_table_alert_time) > timedelta(minutes=table_aler
             f"보유량: {row['보유수량']:,.2f}\n"
             f"평가금액: {row['평가금액']:,.0f}원\n"
         )
-        if row['코인명'].upper() in ['HBAR', 'DOGE', 'ENA']:
+        if row['코인명'].upper() in [ 'STX', 'HBAR', 'DOGE']:
             alert_msg += (
                 f"대체 가능 수량: {row['대체가능수량']:,.2f}\n"
                 f"차이 수량: {row['차이수량']:+,.2f}\n"
