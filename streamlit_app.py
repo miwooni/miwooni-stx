@@ -1,4 +1,4 @@
-# 통합-HBAR_최종.py
+# 통합-샌드박스 최종.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -49,20 +49,16 @@ def send_telegram_alert(message: str):
     
     try:
         now = datetime.now()
-        # 텔레그램 전송 로그 초기화
         if 'telegram_sent_log' not in st.session_state:
             st.session_state.telegram_sent_log = []
             
-        # 최근 5분 내 전송된 메시지 필터링
         recent_messages = [
             msg for msg, sent_time in st.session_state.telegram_sent_log
-            if (now - sent_time).total_seconds() < 300  # 5분 = 300초
+            if (now - sent_time).total_seconds() < 300
         ]
         
-        # 동일 메시지가 있는지 확인
         is_duplicate = message in recent_messages
         
-        # 10% 이상 등락률은 중복 체크 무시
         is_significant = False
         if "등락률" in message:
             try:
@@ -72,19 +68,15 @@ def send_telegram_alert(message: str):
             except:
                 pass
                 
-        # 중복이 아니거나 중요 알림인 경우만 전송
         if not is_duplicate or is_significant:
             requests.post(url, data=payload, timeout=5)
             
-            # 알림 로그 추가
             if 'alerts' not in st.session_state:
                 st.session_state.alerts = []
             st.session_state.alerts.append(f"텔레그램 전송: {message}")
             
-            # 전송 로그에 기록
             st.session_state.telegram_sent_log.append((message, now))
             
-            # 오래된 로그 정리 (5분 이상 지난 로그 제거)
             st.session_state.telegram_sent_log = [
                 (msg, time) for msg, time in st.session_state.telegram_sent_log
                 if (now - time).total_seconds() < 300
@@ -94,7 +86,6 @@ def send_telegram_alert(message: str):
         st.error(f"Telegram 알림 전송 실패: {str(e)}")
 
 def parse_number(x):
-    """문자열/숫자 혼합 데이터를 float으로 변환"""
     try:
         if isinstance(x, (int, float)):
             return float(x)
@@ -159,7 +150,6 @@ def detect_chart_patterns(df):
     patterns = []
     if len(df) < 7: return patterns
     
-    # W 패턴 (이중 바닥)
     last5 = df.iloc[-5:]
     lows = last5['low'].values
     if (lows[0] > lows[1] and 
@@ -168,7 +158,6 @@ def detect_chart_patterns(df):
         lows[3] < lows[4]):
         patterns.append("W 패턴(하락 예측)")
     
-    # M 패턴 (이중 천정)
     highs = last5['high'].values
     if (highs[0] < highs[1] and 
         highs[1] > highs[2] and 
@@ -176,7 +165,6 @@ def detect_chart_patterns(df):
         highs[3] > highs[4]):
         patterns.append("M 패턴(상승 예측)")
     
-    # 삼중 바닥 패턴
     if len(df) >= 7:
         last7 = df.iloc[-7:]
         l7 = last7['low'].values
@@ -188,7 +176,6 @@ def detect_chart_patterns(df):
             l7[5] < l7[6]):
             patterns.append("강한 상승 예측측")
     
-    # 상승 삼각형 패턴
     if len(df) >= 10:
         resistance = df['high'].rolling(5).max()[-5:]
         support = df['low'].rolling(5).min()[-5:]
@@ -197,7 +184,7 @@ def detect_chart_patterns(df):
         if (np.all(np.abs(res_diff) < 0.02*resistance.mean()) and 
             np.all(sup_diff > 0)):
             patterns.append("상승예측")
-    # 역 헤드 앤 숄더 (상승 전환)
+
     if len(df) >= 7:
         last7 = df.iloc[-7:]
         lows = last7['low'].values
@@ -209,7 +196,6 @@ def detect_chart_patterns(df):
         lows[5] < lows[6]):
         patterns.append("역 헤드앤숄더(강한 상승 예측)")
 
-    # 헤드 앤 숄더 (하락 전환)
     if len(df) >= 7:
         last7 = df.iloc[-7:]
         highs = last7['high'].values
@@ -221,40 +207,36 @@ def detect_chart_patterns(df):
         highs[5] > highs[6]):
         patterns.append("헤드앤숄더(강한 하락 예측)")
 
-    # 상승 깃발 (추세 지속)
     if len(df) >= 8:
         last8 = df.iloc[-8:]
         range_cond = last8['high'] - last8['low']
-    if (np.all(range_cond[:3] > 2*range_cond.mean()) and  # 초기 급등
-        np.all(np.diff(last8['close'][3:]) < 0.02*last8['close'].mean())): # 이후 횡보
+    if (np.all(range_cond[:3] > 2*range_cond.mean()) and
+        np.all(np.diff(last8['close'][3:]) < 0.02*last8['close'].mean())):
         patterns.append("상승 깃발패턴(추세 지속)")
 
-    # 하락 쐐기 (상승 반전)
     if len(df) >= 10:
         last10 = df.iloc[-10:]
         upper = last10['high'].rolling(3).max().dropna()
         lower = last10['low'].rolling(3).min().dropna()
-    if (np.all(np.diff(upper) < 0) and  # 고점 하락
-        np.all(np.diff(lower) < 0)):    # 저점 하락 (수렴)
+    if (np.all(np.diff(upper) < 0) and
+        np.all(np.diff(lower) < 0)):
         patterns.append("하락 쐐기(상승 반전 예측)")
 
-    # 컵 앤 핸들 (상승 지속)
     if len(df) >= 20:
         last20 = df.iloc[-20:]
         cup = last20[:15]['low'].values
         handle = last20[15:]['low'].values
-    if (np.all(cup[0] > cup[1:7]) and   # 컵 형성(초기 하락)
-        np.all(cup[-5:] > cup[7]) and    # 컵 복귀 
-        np.all(handle[-3:] > handle[0])): # 핸들 조정
+    if (np.all(cup[0] > cup[1:7]) and
+        np.all(cup[-5:] > cup[7]) and
+        np.all(handle[-3:] > handle[0])):
         patterns.append("컵 앤 핸들(상승 지속)")
 
-    # 삼각 수렴 (상승/하락 브레이크아웃)
     if len(df) >= 10:
         last10 = df.iloc[-10:]
         upper = last10['high'].values
         lower = last10['low'].values
-    if (np.all(np.diff(upper) < 0) and  # 고점 하락
-        np.all(np.diff(lower) > 0)):    # 저점 상승
+    if (np.all(np.diff(upper) < 0) and
+        np.all(np.diff(lower) > 0)):
         patterns.append("삼각 수렴(추세 모멘텀)")
     return patterns
 
@@ -273,7 +255,6 @@ def calculate_signal_score(df, latest):
         if not all(key in latest for key in required_keys):
             raise ValueError("필수 기술적 지표 데이터 누락")
 
-        # 매수 조건
         if latest['HMA3'] > latest['HMA']:
             buy_score += 3
             buy_reasons.append("HMA3 > HMA (3점)")
@@ -290,7 +271,6 @@ def calculate_signal_score(df, latest):
             buy_score += 2
             buy_reasons.append("가격 < BB 하한선 (2점)")
 
-        # 매도 조건
         if latest['HMA3'] < latest['HMA']:
             sell_score += 3
             sell_reasons.append("HMA3 < HMA (3점)")
@@ -321,15 +301,22 @@ st.markdown("🔥 Live Cryptocurrency Analytics Dashboard", unsafe_allow_html=Tr
 st_autorefresh(interval=5000, key="auto_refresh")
 
 # ---------------------- 전역 변수 ----------------------
+# 기축: SAND (샌드박스)
+# 비교 대상: ENA(에테나), ONDO(온도파이낸스), STX(스택스), HBAR(헤데라), DOGE(도지)
 default_holdings = {
-    'KRW-ENA': 14800.605,
-    'KRW-STX': 15604.4864,
-    'KRW-HBAR': 62216,
-    'KRW-DOGE': 61194.37067502,
+    'KRW-SAND': 67645.82069552,   # 샌드박스 (기축 / 메인)
+    'KRW-ENA': 0.0,               # 에테나 (미보유)
+    'KRW-ONDO': 0.0,              # 온도파이낸스 (미보유)
+    'KRW-STX': 15604.4864,        # 스택스
+    'KRW-HBAR': 62216,            # 헤데라
+    'KRW-DOGE': 61194.37067502,   # 도지
 }
 markets = list(default_holdings.keys())
 timeframes = {1: '1분', 3: '3분', 5: '5분', 15: '15분', 60: '60분', 240: '240분'}
-TOTAL_INVESTMENT = 58500000
+
+# 기축 코인 / 총 매수 원금
+BASE_MARKET = 'KRW-SAND'
+TOTAL_INVESTMENT = 65_000_000   # 6,500만원
 
 # ---------------------- 데이터 함수 ----------------------
 @st.cache_data(ttl=10)
@@ -337,7 +324,6 @@ def get_current_prices():
     try:
         res = requests.get(f"https://api.upbit.com/v1/ticker?markets={','.join(markets)}")
         return {x['market']:x for x in res.json()}
-        
     except:
         return {market: {'trade_price': 0, 'signed_change_rate': 0} for market in markets}
 
@@ -370,32 +356,30 @@ with st.sidebar:
     st.header("⚙️ 제어 패널")
     selected_tf = st.selectbox('차트 주기', list(timeframes.keys()), format_func=lambda x: timeframes[x])
     
-    # 로그인 정보 표시
     if 'login_time' in st.session_state:
         login_duration = datetime.now() - st.session_state.login_time
         hours = login_duration.seconds // 3600
         minutes = (login_duration.seconds % 3600) // 60
         st.info(f"로그인 시간: {hours}시간 {minutes}분 경과")
     
-    # 로그아웃 버튼
     if st.button("🚪 로그아웃"):
         st.session_state.logged_in = False
         st.rerun()
     
-    st.subheader("💰 투자 현황")
+    st.subheader(f"💰 투자 현황 (기축: {BASE_MARKET.split('-')[1]})")
     prices = get_current_prices()
-    ena_holding = default_holdings['KRW-ENA']
-    ena_price = prices['KRW-ENA']['trade_price']
-    current_value = ena_holding * ena_price
+    base_holding = default_holdings[BASE_MARKET]
+    base_price = prices[BASE_MARKET]['trade_price']
+    current_value = base_holding * base_price
     profit = current_value - TOTAL_INVESTMENT
-    profit_percent = (profit / TOTAL_INVESTMENT) * 100
+    profit_percent = (profit / TOTAL_INVESTMENT) * 100 if TOTAL_INVESTMENT else 0
     profit_emoji = "🔻" if profit < 0 else "🟢"
     
-    st.metric("총 투자금액", f"{TOTAL_INVESTMENT:,.0f} 원")
-    st.metric("ENA 자산가치", 
+    st.metric("총 매수 원금", f"{TOTAL_INVESTMENT:,.0f} 원")
+    st.metric(f"{BASE_MARKET.split('-')[1]} 자산가치", 
             f"{current_value:,.0f} 원", 
             f"{profit_emoji} {profit:+,.0f} 원 ({profit_percent:+.2f}%)")
-    st.metric("ENA 보유량", f"{ena_holding:,.2f} EA")
+    st.metric(f"{BASE_MARKET.split('-')[1]} 보유량", f"{base_holding:,.4f} {BASE_MARKET.split('-')[1]}")
     
     st.subheader("🔔 텔레그램 알림")
     telegram_enabled = st.checkbox("텔레그램 알림 활성화")
@@ -410,8 +394,7 @@ if 'last_table_alert_time' not in st.session_state:
     st.session_state.last_table_alert_time = datetime.min
 
 def generate_coin_table():
-    signal_scores = {} 
-    base_market = 'KRW-ENA'
+    base_market = BASE_MARKET
     base_qty = default_holdings[base_market]
     base_price_data = prices.get(base_market, {'trade_price': 0, 'signed_change_rate': 0})
     base_price = base_price_data['trade_price']
@@ -449,7 +432,6 @@ def generate_coin_table():
             diff_qty = replace_qty - qty
             replace_value = replace_qty * price * 0.9995
             
-            # 대체 수량 변화 알림 (마이너스에서 플러스로 전환 시)
             last_diff_key = f"{coin}_last_diff_qty"
             current_diff_sign = np.sign(diff_qty)
             last_diff_sign = st.session_state.get(last_diff_key, current_diff_sign)
@@ -459,12 +441,12 @@ def generate_coin_table():
                 alert_msg = (
                     f"🚨 [{coin} {timeframe_str}차트] 대체 수량 전환 알림!\n"
                     f"📈 이전 차이: {last_diff_sign:+.2f} → 현재 차이: {diff_qty:+.2f}\n"
-                    f"📊 현재 가격: {price:,.1f} 원\n"
-                    f"🔄 대체 가능 수량: {replace_qty:,.2f} (차이: {diff_qty:+,.2f})"
+                    f"📊 현재 가격: {price:,.4f} 원\n"
+                    f"🔄 대체 가능 수량: {replace_qty:,.4f} (차이: {diff_qty:+,.4f})"
                 )
                 
                 last_alert_time = st.session_state.last_alert_time.get(f"{coin}_qty_change", datetime.min)
-                if (now - last_alert_time) > timedelta(minutes=5):  # 5분 간격으로만 알림
+                if (now - last_alert_time) > timedelta(minutes=5):
                     st.session_state.alerts.append(alert_msg)
                     st.session_state.last_alert_time[f"{coin}_qty_change"] = now
                     if telegram_enabled:
@@ -483,7 +465,7 @@ def generate_coin_table():
         
         compare_data.append({
             '코인명': coin,
-            '시세': f"{price:,.1f} 원",
+            '시세': f"{price:,.4f} 원",
             'RSI': f"{latest_rsi:.1f}",
             '매수신호': f"<span style='color:{buy_color}'>매수({buy_score}/10)</span>",
             '매도신호': f"<span style='color:{sell_color}'>매도({sell_score}/10)</span>",
@@ -500,7 +482,7 @@ def generate_coin_table():
     df_compare['대체가능수량'] = df_compare['대체가능수량'].apply(parse_number)
     return df_compare
 
-st.subheader("📊 코인 비교 테이블 (RSI 포함)")
+st.subheader(f"📊 코인 비교 테이블 (기축: SAND / 비교: ENA·ONDO·STX·HBAR·DOGE / RSI 포함)")
 df_compare = generate_coin_table()
 
 def format_number(x):
@@ -535,10 +517,11 @@ if (now - st.session_state.last_table_alert_time) > timedelta(minutes=table_aler
             f"보유량: {row['보유수량']:,.2f}\n"
             f"평가금액: {row['평가금액']:,.0f}원\n"
         )
-        if row['코인명'].upper() in [ 'STX', 'HBAR', 'DOGE']:
+        # 기축(SAND) 제외한 5개 비교 코인에 대해 대체 수량 정보 표시
+        if row['코인명'].upper() in ['ENA', 'ONDO', 'STX', 'HBAR', 'DOGE']:
             alert_msg += (
-                f"대체 가능 수량: {row['대체가능수량']:,.2f}\n"
-                f"차이 수량: {row['차이수량']:+,.2f}\n"
+                f"대체 가능 수량: {row['대체가능수량']:,.4f}\n"
+                f"차이 수량: {row['차이수량']:+,.4f}\n"
             )
         alert_msg += "\n"
     
@@ -572,7 +555,7 @@ for market in markets:
         low=df['low'], close=df['close'], name="Price"), row=1, col=1)
     
     fig.add_hline(y=current_price, line_dash="solid", line_color="orange", row=1, col=1,
-                 annotation_text=f"      _____________________________________________________________________________________________________________________________ 현재가: {current_price:,.1f}______________________________________", 
+                 annotation_text=f"      _____________________________________________________________________________________________________________________________ 현재가: {current_price:,.4f}______________________________________", 
                  annotation_position="top left",
                  annotation_font_color="white",
                  annotation_font_size=14,
@@ -609,15 +592,14 @@ for market in markets:
     detected_patterns = detect_chart_patterns(df)
     pattern_alerts = []
     for pattern in detected_patterns:
-        timeframe_str = timeframes[selected_tf]  # 선택된 시간대 문자열 가져오기
-        alert_msg = f"🚨🚨 [{coin} {timeframe_str}차트]{current_price:,.1f} 원 // 강력한 패턴 경고 - {pattern} 발현! ({now.strftime('%H:%M:%S')})"
+        timeframe_str = timeframes[selected_tf]
+        alert_msg = f"🚨🚨 [{coin} {timeframe_str}차트]{current_price:,.4f} 원 // 강력한 패턴 경고 - {pattern} 발현! ({now.strftime('%H:%M:%S')})"
         pattern_alerts.append(alert_msg)
         
-        # 마지막 알림 시간 확인 (10분 내 동일 패턴 알림 방지)
         last_pattern_alert_key = f"{coin}_{pattern[:10]}_pattern"
         last_alert_time = st.session_state.last_alert_time.get(last_pattern_alert_key, datetime.min)
         
-        if (now - last_alert_time) > timedelta(minutes=10):  # 10분 간격으로만 알림
+        if (now - last_alert_time) > timedelta(minutes=10):
             if telegram_enabled:
                 send_telegram_alert(alert_msg)
             st.session_state.last_alert_time[last_pattern_alert_key] = now
@@ -627,17 +609,16 @@ for market in markets:
 # ---------------------- 실시간 알림 출력 ----------------------
 st.subheader("🔔 분석알림 (RSI, 패턴, 수량 변화 포함)")
 for alert in reversed(st.session_state.alerts[-10:]):
-    # 알림 유형에 따라 다른 스타일 적용
     if "대체 수량 전환" in alert:
-        bg_color = "#1a5276"  # 파란색 계열 (수량 변화 알림)
+        bg_color = "#1a5276"
     elif "패턴 경고" in alert:
-        bg_color = "#7d3c98"  # 보라색 계열 (패턴 알림)
+        bg_color = "#7d3c98"
     elif "매수 신호" in alert:
-        bg_color = "#196f3d"  # 녹색 계열 (매수 알림)
+        bg_color = "#196f3d"
     elif "매도 신호" in alert:
-        bg_color = "#943126"  # 빨간색 계열 (매도 알림)
+        bg_color = "#943126"
     else:
-        bg_color = "#2b2b2b"  # 기본 배경색
+        bg_color = "#2b2b2b"
         
     st.markdown(
         f"""<div style='padding:10px; background:{bg_color}; border-radius:5px; margin:5px 0;'>{alert}</div>""", 
