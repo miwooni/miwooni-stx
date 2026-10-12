@@ -1,4 +1,4 @@
-# 통합-샌드박스 최종.py
+# 통합-HBAR_최종.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -379,7 +379,7 @@ with st.sidebar:
     st.metric(f"{BASE_MARKET.split('-')[1]} 자산가치", 
             f"{current_value:,.0f} 원", 
             f"{profit_emoji} {profit:+,.0f} 원 ({profit_percent:+.2f}%)")
-    st.metric(f"{BASE_MARKET.split('-')[1]} 보유량", f"{base_holding:,.4f} {BASE_MARKET.split('-')[1]}")
+    st.metric(f"{BASE_MARKET.split('-')[1]} 보유량", f"{base_holding:,.2f} {BASE_MARKET.split('-')[1]}")
     
     st.subheader("🔔 텔레그램 알림")
     telegram_enabled = st.checkbox("텔레그램 알림 활성화")
@@ -441,8 +441,8 @@ def generate_coin_table():
                 alert_msg = (
                     f"🚨 [{coin} {timeframe_str}차트] 대체 수량 전환 알림!\n"
                     f"📈 이전 차이: {last_diff_sign:+.2f} → 현재 차이: {diff_qty:+.2f}\n"
-                    f"📊 현재 가격: {price:,.4f} 원\n"
-                    f"🔄 대체 가능 수량: {replace_qty:,.4f} (차이: {diff_qty:+,.4f})"
+                    f"📊 현재 가격: {price:,.1f} 원\n"
+                    f"🔄 대체 가능 수량: {replace_qty:,.2f} (차이: {diff_qty:+,.2f})"
                 )
                 
                 last_alert_time = st.session_state.last_alert_time.get(f"{coin}_qty_change", datetime.min)
@@ -465,7 +465,7 @@ def generate_coin_table():
         
         compare_data.append({
             '코인명': coin,
-            '시세': f"{price:,.4f} 원",
+            '시세': f"{price:,.1f} 원",
             'RSI': f"{latest_rsi:.1f}",
             '매수신호': f"<span style='color:{buy_color}'>매수({buy_score}/10)</span>",
             '매도신호': f"<span style='color:{sell_color}'>매도({sell_score}/10)</span>",
@@ -520,8 +520,8 @@ if (now - st.session_state.last_table_alert_time) > timedelta(minutes=table_aler
         # 기축(SAND) 제외한 5개 비교 코인에 대해 대체 수량 정보 표시
         if row['코인명'].upper() in ['ENA', 'ONDO', 'STX', 'HBAR', 'DOGE']:
             alert_msg += (
-                f"대체 가능 수량: {row['대체가능수량']:,.4f}\n"
-                f"차이 수량: {row['차이수량']:+,.4f}\n"
+                f"대체 가능 수량: {row['대체가능수량']:,.2f}\n"
+                f"차이 수량: {row['차이수량']:+,.2f}\n"
             )
         alert_msg += "\n"
     
@@ -555,7 +555,7 @@ for market in markets:
         low=df['low'], close=df['close'], name="Price"), row=1, col=1)
     
     fig.add_hline(y=current_price, line_dash="solid", line_color="orange", row=1, col=1,
-                 annotation_text=f"      _____________________________________________________________________________________________________________________________ 현재가: {current_price:,.4f}______________________________________", 
+                 annotation_text=f"      _____________________________________________________________________________________________________________________________ 현재가: {current_price:,.1f}______________________________________", 
                  annotation_position="top left",
                  annotation_font_color="white",
                  annotation_font_size=14,
@@ -593,7 +593,7 @@ for market in markets:
     pattern_alerts = []
     for pattern in detected_patterns:
         timeframe_str = timeframes[selected_tf]
-        alert_msg = f"🚨🚨 [{coin} {timeframe_str}차트]{current_price:,.4f} 원 // 강력한 패턴 경고 - {pattern} 발현! ({now.strftime('%H:%M:%S')})"
+        alert_msg = f"🚨🚨 [{coin} {timeframe_str}차트]{current_price:,.1f} 원 // 강력한 패턴 경고 - {pattern} 발현! ({now.strftime('%H:%M:%S')})"
         pattern_alerts.append(alert_msg)
         
         last_pattern_alert_key = f"{coin}_{pattern[:10]}_pattern"
